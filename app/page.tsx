@@ -268,15 +268,22 @@ export default function Home() {
               transition: 'all 0.2s ease',
             }}
           >
-            <span style={{ fontSize: 18, lineHeight: 1, transition: 'transform 0.2s ease', display: 'inline-block', transform: showConfig ? 'rotate(30deg)' : 'rotate(0deg)', color: showConfig ? 'var(--text)' : 'var(--muted)' }}>⚙</span>
-            <span style={{ fontSize: 12, color: 'var(--alex)', fontWeight: 600 }}>{alexVoice?.name}</span>
-            <span style={{ fontSize: 11, color: 'var(--muted2)' }}>×</span>
-            <span style={{ fontSize: 12, color: 'var(--sam)', fontWeight: 600 }}>{samVoice?.name}</span>
+            <span style={{ fontSize: 16, lineHeight: 1, transition: 'transform 0.2s ease', display: 'inline-block', transform: showConfig ? 'rotate(30deg)' : 'rotate(0deg)', color: showConfig ? 'var(--text)' : 'var(--muted)' }}>⚙</span>
+            <span style={{ display: 'inline-block', width: 1, height: 16, background: 'var(--border2)', margin: '0 2px', flexShrink: 0 }} />
+            <span style={{ fontSize: 13, color: 'var(--alex)', fontWeight: 600, lineHeight: 1 }}>{alexVoice?.name}</span>
+            <span style={{ fontSize: 12, color: 'var(--muted2)', lineHeight: 1 }}>×</span>
+            <span style={{ fontSize: 13, color: 'var(--sam)', fontWeight: 600, lineHeight: 1 }}>{samVoice?.name}</span>
           </button>
 
           {/* Generate button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ color: 'var(--muted2)', fontSize: 10, display: 'none' }} className="cmd-hint">⌘↵</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="cmd-hint" style={{
+              display: 'none', alignItems: 'center', gap: 1,
+              color: 'var(--muted)', lineHeight: 1,
+            }}>
+              <span style={{ fontSize: 18 }}>⌘</span>
+              <span style={{ fontSize: 14, position: 'relative', top: 3 }}>↵</span>
+            </span>
             <button
               onClick={handleGenerate}
               disabled={busy}

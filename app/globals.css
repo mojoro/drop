@@ -118,7 +118,7 @@ audio {
 
 /* Show ⌘↵ hint on desktop */
 @media (min-width: 640px) {
-  .cmd-hint { display: inline !important; }
+  .cmd-hint { display: inline-flex !important; }
 }
 
 /* Mobile: stack voice selectors */
