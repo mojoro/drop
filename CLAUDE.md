@@ -12,22 +12,20 @@
 **How it works:**
 1. User enters a URL or free-text topic
 2. Needle extracts and chunks the content cleanly
-3. Claude Sonnet writes a dialogue script between two hosts (Alex and Sam)
+3. Featherless (Llama-3.3-70B) writes a dialogue script between two hosts (Alex and Sam)
 4. ElevenLabs generates audio for each host voice in parallel
-5. Audio plays in the browser and can be shared via Superchat (WhatsApp)
+5. Audio plays in the browser and can be shared via Superchat (WhatsApp — post-MVP)
 
 **Stack:**
 - Next.js (App Router) with TypeScript
 - Tailwind CSS
-- Anthropic Claude Sonnet (`claude-sonnet-4-20250514`) for script generation
+- Featherless (Llama-3.3-70B) as primary LLM for script generation
 - ElevenLabs free tier for TTS
-- Needle for URL ingestion
-- Featherless as an alternative LLM toggle
-- Superchat for WhatsApp sharing
+- Needle for URL ingestion + automation
+- Superchat for WhatsApp sharing (post-MVP, if time allows)
 
 **Environment variables — create `.env.local` immediately:**
 ```
-ANTHROPIC_API_KEY=
 ELEVENLABS_API_KEY=
 NEEDLE_API_KEY=
 FEATHERLESS_API_KEY=
@@ -43,7 +41,7 @@ SUPERCHAT_API_KEY=
 - **Each team member uses their own ElevenLabs account and API key** — do not share one account
 - **Test with this string only:** `"Hello, this is a test."` — never a full script during dev
 - Pre-generate the 3 demo episodes before 13:00 and save them as files — do not regenerate during the pitch
-- AI Masters student tracks character usage across all three accounts out loud
+- Bernard tracks character usage across all accounts out loud
 
 **Demo episodes to pre-generate before 13:00:**
 1. "The future of AI podcasting" — for Rod Rivera (podcast co-host, AI professor)
@@ -58,9 +56,9 @@ Save as `/public/demos/rod.mp3`, `/public/demos/carla.mp3`, `/public/demos/dan.m
 
 | Person | Owns |
 |--------|------|
-| John | Claude API route + ElevenLabs + UI + Pitch |
-| AI Masters Student | Needle integration + ElevenLabs budget tracking |
-| Math PhD | Featherless integration + audio stitching |
+| John | UI (front-end) + Pitch |
+| Rahul (AI Masters Student) | Needle automation + Featherless script generation |
+| Bernard (Math PhD) | ElevenLabs TTS + audio stitching |
 
 ---
 
@@ -69,14 +67,14 @@ Save as `/public/demos/rod.mp3`, `/public/demos/carla.mp3`, `/public/demos/dan.m
 | Time | Milestone |
 |------|-----------|
 | 11:00 | Repo running, roles confirmed, all API keys in `.env.local` |
-| 11:20 | Claude API route returns a script from a hardcoded topic |
-| 11:40 | ElevenLabs returns audio from a hardcoded 1-line test string |
-| 11:50 | Needle returns clean text from a test URL |
-| 12:00 | Full pipeline connected — URL in, audio out |
-| 12:20 | UI wired to real API, audio plays in browser |
+| 11:20 | Rahul: Featherless returns a script from a hardcoded topic |
+| 11:40 | Rahul: Needle returns clean text from a test URL |
+| 11:40 | Bernard: ElevenLabs returns audio from hardcoded 1-line test string |
+| 12:00 | **MVP MILESTONE — UI renders, topic in → script displayed in browser** |
+| 12:20 | Full pipeline: URL in → Needle → Featherless → script + audio out |
 | **12:30** | **DEMO MILESTONE — working demo locked. Stop adding features.** |
-| 12:30–13:00 | Pre-generate 3 demo episodes, add Featherless toggle, add Superchat button |
-| 13:00–13:30 | UI polish, wire fallback audio players to `/public/demos/` |
+| 12:30–13:00 | Pre-generate 3 demo episodes, polish UI, wire fallback audio to `/public/demos/` |
+| 13:00–13:30 | Superchat button (if time allows), pitch prep |
 | 13:30 | Pitch rehearsal — run it twice out loud |
 | 14:00 | Pitches begin |
 
@@ -88,7 +86,7 @@ Save as `/public/demos/rod.mp3`, `/public/demos/carla.mp3`, `/public/demos/dan.m
 
 > **[Play pre-generated Rod episode — do not generate live]**
 
-> *"Needle handles the URL ingestion. Claude Sonnet writes the script. ElevenLabs generates the voices. Toggle to Featherless if you want a fully open-weight stack. Share it instantly via WhatsApp through Superchat."*
+> *"Needle handles the URL ingestion. Featherless runs the script generation — fully open-weight. ElevenLabs generates the voices. Share it instantly via WhatsApp through Superchat."*
 
 > *"Three hours. Four sponsor integrations. One thing that actually works."*
 
@@ -101,116 +99,20 @@ Save as `/public/demos/rod.mp3`, `/public/demos/carla.mp3`, `/public/demos/dan.m
 
 ---
 
-## 👤 John — Pipeline Lead + ElevenLabs + UI + Pitch
+## 👤 John — Front-End + Pitch
 
 ### Your job
-You own the most ground. Core pipeline, ElevenLabs integration, the frontend, and the pitch. The other two each hand you one clean module — Needle text extraction and a Featherless function — and you assemble everything. Your instinct at all times: **cut, don't add.** You decide what's in scope.
+You own the UI and the pitch. Rahul hands you a working `/api/generate` endpoint that returns `{ scriptLines, alexAudio, samAudio }`. Build the frontend against a mock first — don't wait for the backend. Your instinct at all times: **cut, don't add.** You decide what's in scope.
 
 ---
 
 ### What you build
 
-**File 1: `app/api/generate/route.ts`** — the full pipeline
+**`app/page.tsx`** — the entire UI
 
-Receives `POST { input: string, model: "claude" | "featherless" }` and:
-1. Calls `extractContent(input)` from AI Masters student → clean text
-2. Calls Claude or Featherless depending on `model` → script string
-3. Parses script into `{ speaker, text }[]` line array
-4. Calls ElevenLabs twice in parallel → two audio buffers
-5. Returns `{ scriptLines, alexAudio, samAudio }` as base64
+**MVP goal:** text box centered on screen, explanatory text, go button, script returned and displayed. Audio is a bonus once the script display works.
 
-**File 2: `app/page.tsx`** — the entire UI (build against mocked data first)
-
----
-
-### The Claude API call
-
-```typescript
-const response = await fetch("https://api.anthropic.com/v1/messages", {
-  method: "POST",
-  headers: {
-    "x-api-key": process.env.ANTHROPIC_API_KEY!,
-    "anthropic-version": "2023-06-01",
-    "content-type": "application/json"
-  },
-  body: JSON.stringify({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1000,
-    messages: [{
-      role: "user",
-      content: `You are a podcast script writer. Given the following content, write a punchy 90-second podcast dialogue between two hosts: Alex (curious, conversational, asks sharp questions) and Sam (the expert, gives direct takes with no fluff). Format every line strictly as "ALEX: ..." or "SAM: ..." with no other text, headers, or commentary. Aim for 7–9 exchanges total. End with a memorable one-line takeaway from Sam.\n\nContent: ${cleanedText}`
-    }]
-  })
-})
-const data = await response.json()
-const script = data.content[0].text
-```
-
-Use `claude-sonnet-4-20250514`. Not Opus (too slow), not Haiku (quality too low).
-
----
-
-### Script parsing
-
-```typescript
-function parseScript(script: string) {
-  return script.split('\n')
-    .filter(l => l.trim())
-    .map(line => ({
-      speaker: line.startsWith('ALEX:') ? 'ALEX' : 'SAM',
-      text: line.replace(/^(ALEX|SAM): /, '').trim()
-    }))
-}
-```
-
----
-
-### ElevenLabs integration
-
-```typescript
-const ALEX_VOICE_ID = '21m00Tcm4TlvDq8ikWAM' // Rachel — clear, warm
-const SAM_VOICE_ID  = 'ErXwobaYiN019PkySvjV'  // Antoni — deeper, authoritative
-
-async function generateVoice(text: string, voiceId: string): Promise<ArrayBuffer> {
-  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
-    method: 'POST',
-    headers: {
-      'xi-api-key': process.env.ELEVENLABS_API_KEY!,
-      'Content-Type': 'application/json',
-      'Accept': 'audio/mpeg'
-    },
-    body: JSON.stringify({
-      text,
-      model_id: 'eleven_monolingual_v1', // use this on free tier
-      voice_settings: { stability: 0.5, similarity_boost: 0.75 }
-    })
-  })
-  return res.arrayBuffer()
-}
-
-// In the route handler — call both in parallel:
-const alexText = scriptLines.filter(l => l.speaker === 'ALEX').map(l => l.text).join(' ')
-const samText  = scriptLines.filter(l => l.speaker === 'SAM').map(l => l.text).join(' ')
-
-const [alexBuffer, samBuffer] = await Promise.all([
-  generateVoice(alexText, ALEX_VOICE_ID),
-  generateVoice(samText, SAM_VOICE_ID)
-])
-
-const toBase64 = (buf: ArrayBuffer) => Buffer.from(buf).toString('base64')
-
-return Response.json({
-  scriptLines,
-  alexAudio: toBase64(alexBuffer),
-  samAudio: toBase64(samBuffer)
-})
-```
-
----
-
-### UI — `app/page.tsx`
-
-Build against this mock first — do not wait for the backend:
+Build against this mock first:
 
 ```typescript
 const MOCK = {
@@ -226,55 +128,36 @@ const MOCK = {
 ```
 
 Page elements (top to bottom):
-1. Large text input — placeholder: *"Paste a URL or describe a topic..."*
-2. Small toggle: **Claude Sonnet** / **Featherless** — default Claude
+1. App name + one-line explainer: *"Paste a URL or topic. Get a podcast episode in 60 seconds."*
+2. Large text input — placeholder: *"Paste a URL or describe a topic..."*
 3. Big generate button
-4. Loading states: *"Writing script..."* → *"Generating audio..."*
-5. `<audio controls>` player wired to base64 response
-6. Transcript — Alex lines in muted blue `#6b9fd4`, Sam lines in warm amber `#d4a843`
-7. "Share on WhatsApp" button (Superchat)
+4. Loading states: *"Extracting content..."* → *"Writing script..."* → *"Generating audio..."*
+5. Transcript — Alex lines in muted blue `#6b9fd4`, Sam lines in warm amber `#d4a843`
+6. `<audio controls>` player wired to base64 response (once Bernard's audio is ready)
+7. "Share on WhatsApp" button — Superchat **post-MVP only**, fall back to `navigator.clipboard.writeText()` if complex
 
-Wiring the audio player:
+Wiring the audio player (once backend is ready):
 ```typescript
 const src = `data:audio/mpeg;base64,${data.alexAudio}`
 // <audio src={src} controls autoPlay />
 // MVP: play Alex block then Sam block sequentially
 ```
 
-Superchat share button:
-```typescript
-async function shareToWhatsApp(topic: string) {
-  await fetch('https://api.superchat.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.SUPERCHAT_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      channel: 'whatsapp',
-      message: `🎙️ Just generated a podcast about "${topic}" with Drop.`
-    })
-  })
-}
-```
-
-If Superchat proves complex, fall back to `navigator.clipboard.writeText()`. Don't lose time on it.
-
 **Design:** dark background `#0a0a0a`, centered card `max-w-2xl`, clean sans-serif. Max 25 minutes on styling.
 
 ---
 
 ### Your success condition
-`POST /api/generate` with `{ input: "artificial intelligence" }` returns base64 audio that plays in an `<audio>` element. Once that works, everything else is polish.
+Topic entered → Go clicked → script transcript displays in the browser. Audio playing is the next milestone. Everything else is polish.
 
-Wrap everything in `try/catch`. Return `{ error: string }` on failure — no silent errors.
+Wrap API calls in `try/catch`. Show `{ error: string }` inline on failure — no silent errors.
 
 ---
 
-## 👤 AI Masters Student — Needle Integration + ElevenLabs Budget
+## 👤 Rahul — Needle Automation + Featherless Script Generation
 
 ### Your job
-Two things: build the Needle content extraction module that John imports, and track the team's ElevenLabs character usage. Both are critical to the demo surviving the day.
+Two tasks that form the core backend pipeline: Needle content extraction and Featherless script generation. You own `app/api/generate/route.ts` — the full pipeline endpoint that John's UI calls.
 
 ---
 
@@ -296,7 +179,7 @@ export async function extractContent(input: string): Promise<string> {
   const isUrl = input.startsWith('http://') || input.startsWith('https://')
 
   if (!isUrl) {
-    // Plain text topic — pass straight through to Claude
+    // Plain text topic — pass straight through to Featherless
     return input
   }
 
@@ -314,42 +197,23 @@ export async function extractContent(input: string): Promise<string> {
 }
 ```
 
-Check Needle docs for exact method signatures — the flow is right: create collection → add URL → search → return joined text. Tell John when it's ready and which file it's in.
+Check Needle docs for exact method signatures — flow is: create collection → add URL → search → return joined text.
 
-### Your success condition
-`extractContent("https://www.bbc.com/news")` returns readable plain text — not HTML, not JSON, not an error. Quick `console.log` check is enough. Done.
+### Your success condition (Task 1)
+`extractContent("https://www.bbc.com/news")` returns readable plain text — not HTML, not JSON, not an error.
 
 ### If you finish early
-Try a tighter search query: `"key claims evidence conclusions"` instead of the general one. Better retrieval = better scripts. Worth 15 minutes of experimentation.
+Try a tighter search query: `"key claims evidence conclusions"` — better retrieval = better scripts.
 
 ---
 
-### Task 2: ElevenLabs budget tracking
-
-You are the team's character counter. Announce usage out loud, don't track silently.
-
-- **Dev testing:** `"Hello, this is a test."` only — 22 chars
-- **Demo generation:** 3 episodes × ~1,500 chars = ~4,500 chars (on John's account)
-- **Remaining buffer:** ~5,500 chars across the team for iteration
-
-**Alert the group immediately if anyone's account approaches 8,000 characters.** This is the one thing that could silently kill the demo, and it's entirely preventable.
-
----
-
-## 👤 Math PhD — Featherless Integration + Audio Stitching
-
-### Your job
-Two tasks. Wire up Featherless as an alternative LLM that John toggles to via request param. Then, if time allows, implement proper line-by-line audio interleaving for a more natural-sounding episode. Both are well-defined transformation problems.
-
----
-
-### Task 1: Featherless integration
+### Task 2: Featherless script generation
 
 Create `lib/featherless.ts` and export one function. Featherless exposes an OpenAI-compatible API.
 
 ```typescript
 // lib/featherless.ts
-export async function generateScriptFeatherless(content: string): Promise<string> {
+export async function generateScript(content: string): Promise<string> {
   const res = await fetch('https://api.featherless.ai/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -368,7 +232,6 @@ export async function generateScriptFeatherless(content: string): Promise<string
   const data = await res.json()
   const script = data.choices[0].message.content
 
-  // Safety check — Featherless is less strict about format than Claude
   if (!script.includes('ALEX:') || !script.includes('SAM:')) {
     throw new Error('Invalid script format from Featherless — retry')
   }
@@ -377,18 +240,95 @@ export async function generateScriptFeatherless(content: string): Promise<string
 }
 ```
 
-This function has the same signature as John's Claude call. He picks which one based on `model` in the request body. Good fallback model if Llama-3.3-70B is slow: `mistralai/Mixtral-8x7B-Instruct-v0.1`
+Fallback model if Llama-3.3-70B is slow: `mistralai/Mixtral-8x7B-Instruct-v0.1`
 
-### Your success condition
-`generateScriptFeatherless("artificial intelligence")` returns a string containing both `"ALEX:"` and `"SAM:"` lines without throwing. Tell John it's ready.
-
-Do not spend more than 50 minutes on Task 1. If stuck, ask John — unblocking the pipeline beats any individual task.
+### Your success condition (Task 2)
+`generateScript("artificial intelligence")` returns a string with both `"ALEX:"` and `"SAM:"` lines.
 
 ---
 
-### Task 2: Audio stitching (only if Task 1 done before 12:45)
+### Task 3: Wire the API route
 
-John's MVP joins all Alex lines into one block and all Sam lines into another. True interleaving generates one audio clip per line and plays them in dialogue order — sounds much more like a real conversation.
+Create `app/api/generate/route.ts`. Receives `POST { input: string }` and:
+1. Calls `extractContent(input)` → clean text
+2. Calls `generateScript(cleanedText)` → script string
+3. Parses script into `{ speaker, text }[]` lines
+4. Calls Bernard's `generateVoice` function for both speakers in parallel
+5. Returns `{ scriptLines, alexAudio, samAudio }` as base64
+
+```typescript
+function parseScript(script: string) {
+  return script.split('\n')
+    .filter(l => l.trim())
+    .map(line => ({
+      speaker: line.startsWith('ALEX:') ? 'ALEX' : 'SAM',
+      text: line.replace(/^(ALEX|SAM): /, '').trim()
+    }))
+}
+```
+
+Tell John when the route is working so he can wire the UI.
+
+---
+
+## 👤 Bernard — ElevenLabs TTS + Audio Stitching
+
+### Your job
+Two tasks: get ElevenLabs generating voice audio from script text, then (if time allows) implement proper line-by-line audio interleaving for a more natural-sounding episode. You also track the team's ElevenLabs character budget — announce usage out loud.
+
+---
+
+### Task 1: ElevenLabs TTS
+
+Create `lib/elevenlabs.ts` and export a `generateVoice` function.
+
+```typescript
+// lib/elevenlabs.ts
+const ALEX_VOICE_ID = '21m00Tcm4TlvDq8ikWAM' // Rachel — clear, warm
+const SAM_VOICE_ID  = 'ErXwobaYiN019PkySvjV'  // Antoni — deeper, authoritative
+
+export { ALEX_VOICE_ID, SAM_VOICE_ID }
+
+export async function generateVoice(text: string, voiceId: string): Promise<ArrayBuffer> {
+  const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': process.env.ELEVENLABS_API_KEY!,
+      'Content-Type': 'application/json',
+      'Accept': 'audio/mpeg'
+    },
+    body: JSON.stringify({
+      text,
+      model_id: 'eleven_monolingual_v1', // use this on free tier
+      voice_settings: { stability: 0.5, similarity_boost: 0.75 }
+    })
+  })
+  return res.arrayBuffer()
+}
+```
+
+Rahul's API route calls this. Test with `"Hello, this is a test."` only during dev — 22 chars, never a full script.
+
+### Your success condition (Task 1)
+`generateVoice("Hello, this is a test.", ALEX_VOICE_ID)` returns an ArrayBuffer that plays as MP3 audio. Tell Rahul when it's ready so he can wire it into the route.
+
+---
+
+### Task 2: ElevenLabs budget tracking
+
+You are the team's character counter. Announce usage out loud, don't track silently.
+
+- **Dev testing:** `"Hello, this is a test."` only — 22 chars
+- **Demo generation:** 3 episodes × ~1,500 chars = ~4,500 chars
+- **Remaining buffer:** ~5,500 chars across the team for iteration
+
+**Alert the group immediately if anyone's account approaches 8,000 characters.**
+
+---
+
+### Task 3: Audio stitching (only if Tasks 1+2 done before 12:45)
+
+The MVP joins all Alex lines into one block and all Sam lines into another. True interleaving generates one audio clip per line and plays them in dialogue order — sounds much more like a real conversation.
 
 ```typescript
 // lib/audio.ts
@@ -404,6 +344,6 @@ export function stitchAudio(buffers: ArrayBuffer[]): ArrayBuffer {
 }
 ```
 
-For this to work, John needs to call ElevenLabs once per script line in sequence and collect the buffers in order. Flag this to John — it costs more ElevenLabs characters and more API calls. Only pursue it if the character budget allows and the MVP is already stable.
+Flag to Rahul before pursuing — it costs more ElevenLabs characters and more API calls. Only do it if the character budget allows and the MVP is already stable.
 
 Simple byte concatenation works for MP3 in most cases. If there are audible glitches at joins, insert a small silence buffer (a few hundred bytes of zeros) between segments.
