@@ -4,16 +4,23 @@ import { useState } from 'react'
 
 // ── Voice catalogue ────────────────────────────────────────────────────────
 const VOICES = [
-  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George',  desc: 'British · Warm',           gender: 'M' },
-  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  desc: 'British · Broadcast',      gender: 'M' },
-  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',   desc: 'American · Deep',          gender: 'M' },
-  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric',    desc: 'American · Smooth',        gender: 'M' },
-  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will',    desc: 'American · Casual',        gender: 'M' },
-  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah',   desc: 'American · Confident',     gender: 'F' },
-  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice',   desc: 'British · Clear',          gender: 'F' },
-  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', desc: 'American · Pro',           gender: 'F' },
-  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura',   desc: 'American · Energetic',     gender: 'F' },
-  { id: 'ErXwobaYiN019PkySvjV', name: 'Antonia', desc: 'American · Authoritative', gender: 'F' },
+  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George',  desc: 'British · Warm',              gender: 'M' },
+  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  desc: 'British · Broadcast',         gender: 'M' },
+  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',   desc: 'American · Deep',             gender: 'M' },
+  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric',    desc: 'American · Smooth',           gender: 'M' },
+  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will',    desc: 'American · Casual',           gender: 'M' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger',   desc: 'American · Conversational',   gender: 'M' },
+  { id: 'iP95p4xoKVk53GoZ742B', name: 'Chris',   desc: 'American · Natural',          gender: 'M' },
+  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', desc: 'Australian · Energetic',      gender: 'M' },
+  { id: 'SAz9YHcvj6GT2YYXdXww', name: 'River',   desc: 'American · Neutral',          gender: 'N' },
+  { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam',    desc: 'American · Warm',             gender: 'M' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah',   desc: 'American · Confident',        gender: 'F' },
+  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice',   desc: 'British · Clear',             gender: 'F' },
+  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', desc: 'American · Pro',              gender: 'F' },
+  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura',   desc: 'American · Energetic',        gender: 'F' },
+  { id: 'ErXwobaYiN019PkySvjV', name: 'Antonia', desc: 'American · Authoritative',    gender: 'F' },
+  { id: 'cgSgspJ2msm6clMCkdW9', name: 'Jessica', desc: 'American · Bright & Warm',   gender: 'F' },
+  { id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily',    desc: 'British · Velvety',           gender: 'F' },
 ]
 
 // ── Pipeline stages ────────────────────────────────────────────────────────
