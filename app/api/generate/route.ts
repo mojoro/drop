@@ -3,16 +3,13 @@ import { extractContent } from "@/lib/needle";
 import { generateScriptFeatherless } from "@/lib/featherless";
 import { parseScript, getScriptStats } from "@/lib/script";
 import { generateVoice, ALEX_VOICE_ID, SAM_VOICE_ID } from "@/lib/elevenlabs";
+import { stitchAudio } from "@/lib/audioStitching";
 
 export const runtime = "nodejs";
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Unknown error";
-}
-
-function toBase64(buf: ArrayBuffer): string {
-  return Buffer.from(buf).toString("base64");
 }
 
 export async function POST(req: Request) {
@@ -29,24 +26,20 @@ export async function POST(req: Request) {
     const scriptLines = parseScript(script);
     const stats = getScriptStats(scriptLines);
 
-    const alexText = scriptLines
-      .filter((l) => l.speaker === "ALEX")
-      .map((l) => l.text)
-      .join(" ");
-    const samText = scriptLines
-      .filter((l) => l.speaker === "SAM")
-      .map((l) => l.text)
-      .join(" ");
+    // Generate audio per line in dialogue order, then stitch into one file
+    const buffers: ArrayBuffer[] = [];
+    for (const line of scriptLines) {
+      const voiceId = line.speaker === "ALEX" ? ALEX_VOICE_ID : SAM_VOICE_ID;
+      const buf = await generateVoice(line.text, voiceId);
+      buffers.push(buf);
+    }
 
-    const [alexBuffer, samBuffer] = await Promise.all([
-      generateVoice(alexText, ALEX_VOICE_ID),
-      generateVoice(samText, SAM_VOICE_ID),
-    ]);
+    const stitched = stitchAudio(buffers);
+    const audio = Buffer.from(stitched).toString("base64");
 
     return NextResponse.json({
       scriptLines,
-      alexAudio: toBase64(alexBuffer),
-      samAudio: toBase64(samBuffer),
+      audio,
       debug: {
         extractedPreview: extracted.slice(0, 2500),
         rawScript: script,

@@ -6,21 +6,7 @@ type ScriptLine = { speaker: 'ALEX' | 'SAM'; text: string }
 
 type GenerateResult = {
   scriptLines: ScriptLine[]
-  alexAudio: string | null
-  samAudio: string | null
-}
-
-const MOCK: GenerateResult = {
-  scriptLines: [
-    { speaker: 'ALEX', text: "So what's actually happening with open source AI?" },
-    { speaker: 'SAM', text: "It's moving faster than anyone expected. Llama 3 basically closed the gap." },
-    { speaker: 'ALEX', text: "Does that threaten the big labs?" },
-    { speaker: 'SAM', text: "It changes their business model more than it threatens them." },
-    { speaker: 'ALEX', text: "So where does that leave startups building on top of these models?" },
-    { speaker: 'SAM', text: "In a great spot, actually. Open weights mean no vendor lock-in and no usage bills at scale." },
-  ],
-  alexAudio: null,
-  samAudio: null,
+  audio: string | null
 }
 
 type Status = 'idle' | 'extracting' | 'writing' | 'audio' | 'done' | 'error'
@@ -60,7 +46,7 @@ export default function Home() {
         throw new Error(data.error ?? `HTTP ${res.status}`)
       }
 
-      if (data.alexAudio) setStatus('audio')
+      if (data.audio) setStatus('audio')
       setResult(data)
       setStatus('done')
     } catch (e) {
@@ -120,6 +106,24 @@ export default function Home() {
       {/* Result */}
       {result && (
         <div className="w-full max-w-2xl mt-8 flex flex-col gap-6">
+          {/* Audio player */}
+          {result.audio && (
+            <div
+              className="rounded-2xl p-6 flex flex-col gap-3"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+                Listen
+              </h2>
+              <audio
+                controls
+                autoPlay
+                className="w-full"
+                src={`data:audio/mpeg;base64,${result.audio}`}
+              />
+            </div>
+          )}
+
           {/* Transcript */}
           <div
             className="rounded-2xl p-6 flex flex-col gap-4"
@@ -142,36 +146,6 @@ export default function Home() {
               </div>
             ))}
           </div>
-
-          {/* Audio players — shown only when audio is available */}
-          {result.alexAudio && (
-            <div
-              className="rounded-2xl p-6 flex flex-col gap-3"
-              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
-            >
-              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
-                Audio
-              </h2>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs" style={{ color: 'var(--alex)' }}>Alex</label>
-                <audio
-                  controls
-                  className="w-full"
-                  src={`data:audio/mpeg;base64,${result.alexAudio}`}
-                />
-              </div>
-              {result.samAudio && (
-                <div className="flex flex-col gap-2">
-                  <label className="text-xs" style={{ color: 'var(--sam)' }}>Sam</label>
-                  <audio
-                    controls
-                    className="w-full"
-                    src={`data:audio/mpeg;base64,${result.samAudio}`}
-                  />
-                </div>
-              )}
-            </div>
-          )}
         </div>
       )}
     </main>
