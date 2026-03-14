@@ -1,65 +1,168 @@
-import Image from "next/image";
+'use client'
+
+import { useState } from 'react'
+
+type ScriptLine = { speaker: 'ALEX' | 'SAM'; text: string }
+
+type GenerateResult = {
+  scriptLines: ScriptLine[]
+  alexAudio: string | null
+  samAudio: string | null
+}
+
+const MOCK: GenerateResult = {
+  scriptLines: [
+    { speaker: 'ALEX', text: "So what's actually happening with open source AI?" },
+    { speaker: 'SAM', text: "It's moving faster than anyone expected. Llama 3 basically closed the gap." },
+    { speaker: 'ALEX', text: "Does that threaten the big labs?" },
+    { speaker: 'SAM', text: "It changes their business model more than it threatens them." },
+    { speaker: 'ALEX', text: "So where does that leave startups building on top of these models?" },
+    { speaker: 'SAM', text: "In a great spot, actually. Open weights mean no vendor lock-in and no usage bills at scale." },
+  ],
+  alexAudio: null,
+  samAudio: null,
+}
+
+type Status = 'idle' | 'extracting' | 'writing' | 'audio' | 'done' | 'error'
+
+const STATUS_LABELS: Record<Status, string> = {
+  idle: '',
+  extracting: 'Extracting content...',
+  writing: 'Writing script...',
+  audio: 'Generating audio...',
+  done: '',
+  error: '',
+}
 
 export default function Home() {
+  const [input, setInput] = useState('')
+  const [status, setStatus] = useState<Status>('idle')
+  const [result, setResult] = useState<GenerateResult | null>(MOCK)
+  const [error, setError] = useState<string | null>(null)
+
+  async function handleGenerate() {
+    if (!input.trim()) return
+    setStatus('extracting')
+    setResult(null)
+    setError(null)
+
+    try {
+      setStatus('writing')
+      // TODO: replace with real API call in Task 5
+      await new Promise(r => setTimeout(r, 1200))
+      setStatus('done')
+      setResult(MOCK)
+    } catch (e) {
+      setStatus('error')
+      setError(e instanceof Error ? e.message : 'Something went wrong')
+    }
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen flex flex-col items-center justify-start pt-20 px-4">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-4xl font-bold tracking-tight mb-2">Drop</h1>
+        <p className="text-lg" style={{ color: 'var(--muted)' }}>
+          Paste a URL or topic. Get a podcast episode in 60 seconds.
+        </p>
+      </div>
+
+      {/* Input card */}
+      <div
+        className="w-full max-w-2xl rounded-2xl p-6 flex flex-col gap-4"
+        style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+      >
+        <textarea
+          className="w-full bg-transparent resize-none outline-none text-base leading-relaxed placeholder:opacity-40"
+          rows={3}
+          placeholder="Paste a URL or describe a topic..."
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleGenerate() }}
+          style={{ color: 'var(--text)' }}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+        <button
+          onClick={handleGenerate}
+          disabled={status === 'extracting' || status === 'writing' || status === 'audio'}
+          className="self-end px-6 py-2.5 rounded-xl font-semibold text-sm transition-opacity disabled:opacity-40"
+          style={{ background: 'var(--alex)', color: '#0a0a0a' }}
+        >
+          Generate
+        </button>
+      </div>
+
+      {/* Status */}
+      {STATUS_LABELS[status] && (
+        <p className="mt-6 text-sm animate-pulse" style={{ color: 'var(--muted)' }}>
+          {STATUS_LABELS[status]}
+        </p>
+      )}
+
+      {/* Error */}
+      {error && (
+        <p className="mt-6 text-sm" style={{ color: '#e07070' }}>
+          {error}
+        </p>
+      )}
+
+      {/* Result */}
+      {result && (
+        <div className="w-full max-w-2xl mt-8 flex flex-col gap-6">
+          {/* Transcript */}
+          <div
+            className="rounded-2xl p-6 flex flex-col gap-4"
+            style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+              Transcript
+            </h2>
+            {result.scriptLines.map((line, i) => (
+              <div key={i} className="flex gap-3">
+                <span
+                  className="text-xs font-bold pt-0.5 w-8 shrink-0"
+                  style={{ color: line.speaker === 'ALEX' ? 'var(--alex)' : 'var(--sam)' }}
+                >
+                  {line.speaker}
+                </span>
+                <p className="text-sm leading-relaxed" style={{ color: 'var(--text)' }}>
+                  {line.text}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* Audio players — shown only when audio is available */}
+          {result.alexAudio && (
+            <div
+              className="rounded-2xl p-6 flex flex-col gap-3"
+              style={{ background: 'var(--card)', border: '1px solid var(--border)' }}
+            >
+              <h2 className="text-xs font-semibold uppercase tracking-widest" style={{ color: 'var(--muted)' }}>
+                Audio
+              </h2>
+              <div className="flex flex-col gap-2">
+                <label className="text-xs" style={{ color: 'var(--alex)' }}>Alex</label>
+                <audio
+                  controls
+                  className="w-full"
+                  src={`data:audio/mpeg;base64,${result.alexAudio}`}
+                />
+              </div>
+              {result.samAudio && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-xs" style={{ color: 'var(--sam)' }}>Sam</label>
+                  <audio
+                    controls
+                    className="w-full"
+                    src={`data:audio/mpeg;base64,${result.samAudio}`}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </main>
-    </div>
-  );
+      )}
+    </main>
+  )
 }
