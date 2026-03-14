@@ -1,4 +1,6 @@
 // scripts/test-Stitching.ts
+// This tests the stitching of audio buffers
+// Also saves the converstion in conversation.mp3
 import 'dotenv/config'
 import { writeFileSync } from 'fs'
 import { generateVoice, SAM_VOICE_ID, ALEX_VOICE_ID } from '../lib/elevenlabs'
