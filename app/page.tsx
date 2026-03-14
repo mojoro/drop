@@ -37,7 +37,7 @@ const STATUS_LABELS: Record<Status, string> = {
 export default function Home() {
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<Status>('idle')
-  const [result, setResult] = useState<GenerateResult | null>(MOCK)
+  const [result, setResult] = useState<GenerateResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function handleGenerate() {
@@ -48,10 +48,21 @@ export default function Home() {
 
     try {
       setStatus('writing')
-      // TODO: replace with real API call in Task 5
-      await new Promise(r => setTimeout(r, 1200))
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: input.trim() }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok || data.error) {
+        throw new Error(data.error ?? `HTTP ${res.status}`)
+      }
+
+      if (data.alexAudio) setStatus('audio')
+      setResult(data)
       setStatus('done')
-      setResult(MOCK)
     } catch (e) {
       setStatus('error')
       setError(e instanceof Error ? e.message : 'Something went wrong')
