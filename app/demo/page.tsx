@@ -251,8 +251,9 @@ export default function DemoPage() {
             rows={3}
             placeholder="https://... or describe a topic"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={() => {}}
             onKeyDown={e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleGenerate() }}
+            readOnly
             style={{
               width: '100%', background: 'transparent', border: 'none', outline: 'none',
               color: 'var(--text)', fontSize: 'clamp(13px, 3.5vw, 15px)', lineHeight: 1.6,
