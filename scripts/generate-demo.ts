@@ -13,7 +13,7 @@ import { generateVoice } from '../lib/elevenlabs'
 import { stitchAudio } from '../lib/audioStitching'
 
 const GEORGE_VOICE = 'Fahco4VZzobUeiPqni1S' // Archer  — warm British male
-const JESSICA_VOICE = 'BIvP0GN1cAtSRTxNHnWS' // Jessica — bright, warm American
+const JESSICA_VOICE = 'BIvP0GN1cAtSRTxNHnWS' // Ellen — serious, direct German
 
 const SCRIPT: { speaker: 'ALEX' | 'SAM'; text: string }[] = [
   { speaker: 'ALEX', text: "There's a framing I keep coming back to: attention as infrastructure. What do you mean by that?" },

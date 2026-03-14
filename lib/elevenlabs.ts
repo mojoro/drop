@@ -1,7 +1,7 @@
 import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 
-const ALEX_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // George — warm British male
-const SAM_VOICE_ID = 'ErXwobaYiN019PkySvjV';  // Antonia
+const ALEX_VOICE_ID = 'Fahco4VZzobUeiPqni1S'; // Archer — warm British male
+const SAM_VOICE_ID  = 'BIvP0GN1cAtSRTxNHnWS'; // Ellen  — serious, direct German
 
 export { ALEX_VOICE_ID, SAM_VOICE_ID }
 

@@ -4,6 +4,8 @@ import { useState } from 'react'
 
 // ── Voice catalogue (same as main app) ─────────────────────────────────────
 const VOICES = [
+  { id: 'Fahco4VZzobUeiPqni1S', name: 'Archer',  desc: 'British · Warm',              gender: 'M' },
+  { id: 'BIvP0GN1cAtSRTxNHnWS', name: 'Ellen',   desc: 'German · Direct',             gender: 'F' },
   { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George',  desc: 'British · Warm',              gender: 'M' },
   { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  desc: 'British · Broadcast',         gender: 'M' },
   { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',   desc: 'American · Deep',             gender: 'M' },
@@ -164,8 +166,8 @@ export default function DemoPage() {
   const [input,       setInput]       = useState(DEMO_INPUT)
   const [stage,       setStage]       = useState<Stage>('idle')
   const [showResult,  setShowResult]  = useState(false)
-  const [alexVoiceId, setAlexVoiceId] = useState('JBFqnCBsd6RMkjVDRZzb') // George
-  const [samVoiceId,  setSamVoiceId]  = useState('cgSgspJ2msm6clMCkdW9') // Jessica
+  const [alexVoiceId, setAlexVoiceId] = useState('Fahco4VZzobUeiPqni1S') // Archer
+  const [samVoiceId,  setSamVoiceId]  = useState('BIvP0GN1cAtSRTxNHnWS') // Ellen
   const [showConfig,  setShowConfig]  = useState(false)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'

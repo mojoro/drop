@@ -4,6 +4,8 @@ import { useState } from 'react'
 
 // ── Voice catalogue ────────────────────────────────────────────────────────
 const VOICES = [
+  { id: 'Fahco4VZzobUeiPqni1S', name: 'Archer',  desc: 'British · Warm',              gender: 'M' },
+  { id: 'BIvP0GN1cAtSRTxNHnWS', name: 'Ellen',   desc: 'German · Direct',             gender: 'F' },
   { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George',  desc: 'British · Warm',              gender: 'M' },
   { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  desc: 'British · Broadcast',         gender: 'M' },
   { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',   desc: 'American · Deep',             gender: 'M' },
@@ -147,8 +149,8 @@ export default function Home() {
   const [stage,       setStage]       = useState<Stage>('idle')
   const [result,      setResult]      = useState<Result | null>(null)
   const [error,       setError]       = useState<string | null>(null)
-  const [alexVoiceId, setAlexVoiceId] = useState('JBFqnCBsd6RMkjVDRZzb')
-  const [samVoiceId,  setSamVoiceId]  = useState('EXAVITQu4vr4xnSDxMaL')
+  const [alexVoiceId, setAlexVoiceId] = useState('Fahco4VZzobUeiPqni1S')
+  const [samVoiceId,  setSamVoiceId]  = useState('BIvP0GN1cAtSRTxNHnWS')
   const [showConfig,  setShowConfig]  = useState(false)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
@@ -250,8 +252,6 @@ export default function Home() {
           gap: 12,
           flexWrap: 'wrap',
         }}>
-
-          {/* Config toggle — larger tap target, hover animation */}
           <button
             onClick={() => setShowConfig(c => !c)}
             aria-label="Configure voices"
@@ -275,14 +275,13 @@ export default function Home() {
             <span style={{ fontSize: 13, color: 'var(--sam)', fontWeight: 600, lineHeight: 1 }}>{samVoice?.name}</span>
           </button>
 
-          {/* Generate button */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="cmd-hint" style={{
               display: 'none', alignItems: 'center', gap: 1,
               color: 'var(--muted)', lineHeight: 1,
             }}>
               <span style={{ fontSize: 18 }}>⌘</span>
-              <span style={{ fontSize: 14, position: 'relative', top: 3 }}>↵</span>
+              <span style={{ fontSize: 14, position: 'relative', top: -3, right: -3 }}>↵</span>
             </span>
             <button
               onClick={handleGenerate}
@@ -314,18 +313,15 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Voice config panel */}
         {showConfig && (
-          <div
-            style={{
-              borderTop: '1px solid var(--border)',
-              padding: '16px 20px',
-              display: 'flex',
-              gap: 12,
-              animation: 'slide-up 0.2s ease',
-              flexWrap: 'wrap',
-            }}
-          >
+          <div style={{
+            borderTop: '1px solid var(--border)',
+            padding: '16px 20px',
+            display: 'flex',
+            gap: 12,
+            animation: 'slide-up 0.2s ease',
+            flexWrap: 'wrap',
+          }}>
             <VoiceSelector label="ALEX" color="var(--alex)" voiceId={alexVoiceId} onChange={setAlexVoiceId} />
             <VoiceSelector label="SAM"  color="var(--sam)"  voiceId={samVoiceId}  onChange={setSamVoiceId}  />
           </div>
