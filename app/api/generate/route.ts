@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { extractContent } from "@/lib/needle";
 import { generateScriptFeatherless } from "@/lib/featherless";
+import { generateScriptClaude } from "@/lib/claude";
 import { parseScript, getScriptStats } from "@/lib/script";
 import { generateVoice, ALEX_VOICE_ID, SAM_VOICE_ID } from "@/lib/elevenlabs";
 import { stitchAudio } from "@/lib/audioStitching";
@@ -25,7 +26,14 @@ export async function POST(req: Request) {
     const samVoiceId  = typeof body?.samVoiceId  === "string" ? body.samVoiceId  : SAM_VOICE_ID;
 
     const extracted = await extractContent(input);
-    const script = await generateScriptFeatherless(extracted);
+
+    let script: string;
+    try {
+      script = await generateScriptFeatherless(extracted);
+    } catch (featherlessError) {
+      console.warn("Featherless failed, falling back to Claude:", featherlessError);
+      script = await generateScriptClaude(extracted);
+    }
     const scriptLines = parseScript(script);
     const stats = getScriptStats(scriptLines);
 
