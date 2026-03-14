@@ -21,6 +21,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing input" }, { status: 400 });
     }
 
+    const alexVoiceId = typeof body?.alexVoiceId === "string" ? body.alexVoiceId : ALEX_VOICE_ID;
+    const samVoiceId  = typeof body?.samVoiceId  === "string" ? body.samVoiceId  : SAM_VOICE_ID;
+
     const extracted = await extractContent(input);
     const script = await generateScriptFeatherless(extracted);
     const scriptLines = parseScript(script);
@@ -29,7 +32,7 @@ export async function POST(req: Request) {
     // Generate audio per line in dialogue order, then stitch into one file
     const buffers: ArrayBuffer[] = [];
     for (const line of scriptLines) {
-      const voiceId = line.speaker === "ALEX" ? ALEX_VOICE_ID : SAM_VOICE_ID;
+      const voiceId = line.speaker === "ALEX" ? alexVoiceId : samVoiceId;
       const buf = await generateVoice(line.text, voiceId);
       buffers.push(buf);
     }
