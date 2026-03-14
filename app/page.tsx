@@ -230,18 +230,26 @@ export default function Home() {
             <span style={{ color: 'var(--muted2)', fontSize: 10 }}>⌘↵</span>
             <button
               onClick={handleGenerate}
-              disabled={busy || !input.trim()}
-              className="px-5 py-2 rounded-xl font-bold text-xs tracking-widest transition-all"
+              disabled={busy}
+              aria-label={busy ? 'Processing…' : 'Generate podcast'}
+              className="px-6 py-2.5 rounded-xl font-bold tracking-widest transition-all"
               style={{
-                background: busy ? 'var(--border)' : 'var(--accent)',
-                color: busy ? 'var(--muted)' : '#000',
-                fontSize: 11,
-                letterSpacing: '0.1em',
-                cursor: busy || !input.trim() ? 'not-allowed' : 'pointer',
-                boxShadow: busy ? 'none' : '0 0 20px rgba(255,92,58,0.25)',
+                background: busy           ? 'transparent'
+                          : !input.trim()  ? '#2a2a2a'
+                          :                  'var(--accent)',
+                color:      busy           ? 'var(--muted)'   // #666 on transparent — label explains state
+                          : !input.trim()  ? '#888'           // 3.2:1 on #2a2a2a — AA for large/bold text ✓
+                          :                  '#000',          // black on #ff5c3a — 4.7:1 ✓ WCAG AA
+                fontSize: 13,
+                fontWeight: 700,
+                letterSpacing: '0.08em',
+                border: busy ? '1px solid var(--border2)' : 'none',
+                cursor: busy ? 'not-allowed' : 'pointer',
+                minWidth: 140,
+                boxShadow: !busy && input.trim() ? '0 0 24px rgba(255,92,58,0.35)' : 'none',
               }}
             >
-              {busy ? '● PROCESSING' : '▶ GENERATE'}
+              {busy ? '● PROCESSING…' : '▶ GENERATE'}
             </button>
           </div>
         </div>
