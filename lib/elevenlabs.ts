@@ -6,31 +6,33 @@ const ALEX_VOICE_ID = 'JBFqnCBsd6RMkjVDRZzb'; // User confirmed working ID
 const SAM_VOICE_ID = 'ErXwobaYiN019PkySvjV'; // Antonia (may still be restricted)
 
 const USAGE_FILE = join(process.cwd(), 'usage.csv');
+const IS_READONLY_FS = !!process.env.VERCEL;
 
 export { ALEX_VOICE_ID, SAM_VOICE_ID }
 
 export function getCharacterCounter(): number {
-    if (!existsSync(USAGE_FILE)) {
+    if (IS_READONLY_FS || !existsSync(USAGE_FILE)) {
         return 0;
     }
     try {
         const content = readFileSync(USAGE_FILE, 'utf-8');
         const total = parseInt(content.trim(), 10);
         return isNaN(total) ? 0 : total;
-    } catch (error) {
-        console.error('Error reading usage.csv:', error);
+    } catch {
         return 0;
     }
 }
 
 export function addToCharacterCounter(count: number): void {
-    // Adds the number to the persistent counter
+    if (IS_READONLY_FS) {
+        console.log(`[ElevenLabs] chars used this request: ${count}`);
+        return;
+    }
     const current = getCharacterCounter();
-    const updated = current + count;
     try {
-        writeFileSync(USAGE_FILE, updated.toString(), 'utf-8');
-    } catch (error) {
-        console.error('Error writing to usage.csv:', error);
+        writeFileSync(USAGE_FILE, (current + count).toString(), 'utf-8');
+    } catch {
+        // Silently skip if filesystem is unexpectedly read-only
     }
 }
 
