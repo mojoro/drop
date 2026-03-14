@@ -36,8 +36,8 @@ function PipelineViz({ stage }: { stage: Stage }) {
   const active = stageIndex(stage)
 
   return (
-    <div className="w-full max-w-2xl mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-      <div className="flex items-center gap-0">
+    <div className="w-full mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
+      <div className="flex items-center justify-center gap-0">
         {PIPELINE_STAGES.map((s, i) => {
           const done    = active > i
           const current = active === i && stage !== 'done' && stage !== 'error'
@@ -184,7 +184,11 @@ export default function Home() {
       </div>
 
       {/* ── Pipeline visualization ── */}
-      {stage !== 'idle' && <PipelineViz stage={stage} />}
+      {stage !== 'idle' && (
+        <div className="w-full max-w-2xl flex justify-center mb-2">
+          <PipelineViz stage={stage} />
+        </div>
+      )}
 
       {/* ── Input card ── */}
       <div
