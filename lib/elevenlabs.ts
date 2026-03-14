@@ -5,12 +5,12 @@ const SAM_VOICE_ID = 'ErXwobaYiN019PkySvjV';  // Antonia
 
 export { ALEX_VOICE_ID, SAM_VOICE_ID }
 
-const client = new ElevenLabsClient({
-    apiKey: process.env.ELEVENLABS_API_KEY,
-});
+function getClient() {
+    return new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
+}
 
 export async function generateVoice(text: string, voiceId: string): Promise<ArrayBuffer> {
-    const audioStream = await client.textToSpeech.convert(voiceId, {
+    const audioStream = await getClient().textToSpeech.convert(voiceId, {
         text,
         modelId: 'eleven_multilingual_v2',
         outputFormat: 'mp3_44100_128',
