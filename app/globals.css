@@ -105,3 +105,23 @@ audio {
   filter: invert(1) hue-rotate(180deg);
   border-radius: 4px;
 }
+
+/* Config toggle hover */
+.config-toggle:hover {
+  background: var(--card) !important;
+  border-color: var(--border2) !important;
+}
+.config-toggle:hover span:first-child {
+  transform: rotate(30deg) !important;
+  color: var(--text) !important;
+}
+
+/* Show ⌘↵ hint on desktop */
+@media (min-width: 640px) {
+  .cmd-hint { display: inline !important; }
+}
+
+/* Mobile: stack voice selectors */
+@media (max-width: 480px) {
+  .voice-panel { flex-direction: column !important; }
+}
