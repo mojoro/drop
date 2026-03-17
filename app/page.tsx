@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Voice = { id: string; name: string; type: 'builtin' | 'custom' }
@@ -161,10 +161,64 @@ export default function Home() {
   const [showClone,  setShowClone]  = useState(false)
   const [cloneName,  setCloneName]  = useState('')
   const [cloneFile,  setCloneFile]  = useState<File | null>(null)
-  const [cloning,    setCloning]    = useState(false)
-  const [cloneMsg,   setCloneMsg]   = useState<{ ok: boolean; text: string } | null>(null)
+  const [cloning,      setCloning]      = useState(false)
+  const [cloneMsg,     setCloneMsg]     = useState<{ ok: boolean; text: string } | null>(null)
+  const [recording,    setRecording]    = useState(false)
+  const [recordSecs,   setRecordSecs]   = useState(0)
+  const mediaRecRef    = useRef<MediaRecorder | null>(null)
+  const chunksRef      = useRef<Blob[]>([])
+  const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
+
+  // ── WAV encoder (client-side, mono 16-bit PCM) ────────────────────────────
+  function encodeWav(buf: AudioBuffer): File {
+    const sr = buf.sampleRate
+    const len = buf.length
+    const samples = new Float32Array(len)
+    for (let c = 0; c < buf.numberOfChannels; c++) {
+      const ch = buf.getChannelData(c)
+      for (let i = 0; i < len; i++) samples[i] += ch[i] / buf.numberOfChannels
+    }
+    const pcm = new Int16Array(len)
+    for (let i = 0; i < len; i++) {
+      pcm[i] = Math.max(-32768, Math.min(32767, Math.round(samples[i] * 32767)))
+    }
+    const header = new ArrayBuffer(44)
+    const v = new DataView(header)
+    const w = (o: number, s: string) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)))
+    w(0, 'RIFF'); v.setUint32(4, 36 + pcm.byteLength, true); w(8, 'WAVE')
+    w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true)
+    v.setUint16(22, 1, true); v.setUint32(24, sr, true); v.setUint32(28, sr * 2, true)
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true)
+    w(36, 'data'); v.setUint32(40, pcm.byteLength, true)
+    return new File([header, pcm.buffer], 'recording.wav', { type: 'audio/wav' })
+  }
+
+  async function startRecording() {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mr = new MediaRecorder(stream)
+    chunksRef.current = []
+    mr.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    mr.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop())
+      if (timerRef.current) clearInterval(timerRef.current)
+      const blob = new Blob(chunksRef.current, { type: mr.mimeType })
+      const arrayBuf = await blob.arrayBuffer()
+      const audioBuf = await new AudioContext().decodeAudioData(arrayBuf)
+      setCloneFile(encodeWav(audioBuf))
+      setRecording(false)
+    }
+    mr.start()
+    mediaRecRef.current = mr
+    setRecordSecs(0)
+    setRecording(true)
+    timerRef.current = setInterval(() => setRecordSecs(s => s + 1), 1000)
+  }
+
+  function stopRecording() {
+    mediaRecRef.current?.stop()
+  }
 
   function refreshVoices() {
     return fetch('/api/voices')
@@ -332,8 +386,9 @@ export default function Home() {
                       borderRadius: 8, outline: 'none', fontFamily: 'inherit',
                     }}
                   />
+                  {/* File upload */}
                   <label style={{
-                    flex: 2, minWidth: 160,
+                    flex: 2, minWidth: 120,
                     display: 'flex', alignItems: 'center', gap: 8,
                     background: 'var(--card2)', border: '1px solid var(--border2)',
                     borderRadius: 8, padding: '7px 10px', cursor: 'pointer',
@@ -342,7 +397,7 @@ export default function Home() {
                   }}>
                     <span style={{ flexShrink: 0 }}>◎</span>
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {cloneFile ? cloneFile.name : 'upload WAV file'}
+                      {cloneFile ? cloneFile.name : 'upload WAV'}
                     </span>
                     <input
                       type="file"
@@ -351,6 +406,26 @@ export default function Home() {
                       onChange={e => setCloneFile(e.target.files?.[0] ?? null)}
                     />
                   </label>
+
+                  {/* Mic record button */}
+                  <button
+                    onClick={recording ? stopRecording : startRecording}
+                    title={recording ? 'Stop recording' : 'Record from microphone'}
+                    style={{
+                      padding: '7px 12px', borderRadius: 8, border: 'none',
+                      fontFamily: 'inherit', fontWeight: 600, fontSize: 11,
+                      letterSpacing: '0.06em', cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      background: recording ? 'rgba(255,92,58,0.15)' : 'var(--card2)',
+                      color: recording ? 'var(--accent)' : 'var(--muted)',
+                      borderColor: recording ? 'rgba(255,92,58,0.4)' : 'var(--border2)',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {recording
+                      ? `⏹ ${Math.floor(recordSecs / 60)}:${String(recordSecs % 60).padStart(2, '0')}`
+                      : '⏺ REC'}
+                  </button>
                   <button
                     onClick={handleClone}
                     disabled={cloning || !cloneFile || !cloneName.trim()}
