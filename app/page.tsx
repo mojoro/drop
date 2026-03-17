@@ -157,13 +157,17 @@ export default function Home() {
   const [alexVoice,  setAlexVoice]  = useState('alba')
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
-  const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null) // null = checking
+  const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null)
+  const [showClone,  setShowClone]  = useState(false)
+  const [cloneName,  setCloneName]  = useState('')
+  const [cloneFile,  setCloneFile]  = useState<File | null>(null)
+  const [cloning,    setCloning]    = useState(false)
+  const [cloneMsg,   setCloneMsg]   = useState<{ ok: boolean; text: string } | null>(null)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
 
-  // Fetch available voices from the TTS sidecar on mount
-  useEffect(() => {
-    fetch('/api/voices')
+  function refreshVoices() {
+    return fetch('/api/voices')
       .then(res => res.ok ? res.json() : Promise.reject(res))
       .then((data: { builtin: string[]; custom: string[] }) => {
         const all: Voice[] = [
@@ -174,7 +178,31 @@ export default function Home() {
         setTtsOnline(true)
       })
       .catch(() => setTtsOnline(false))
-  }, [])
+  }
+
+  useEffect(() => { refreshVoices() }, [])
+
+  async function handleClone() {
+    if (!cloneFile || !cloneName.trim() || cloning) return
+    setCloning(true)
+    setCloneMsg(null)
+    try {
+      const form = new FormData()
+      form.append('name', cloneName.trim())
+      form.append('file', cloneFile)
+      const res = await fetch('/api/clone-voice', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
+      await refreshVoices()
+      setCloneMsg({ ok: true, text: `Voice "${data.voice}" cloned` })
+      setCloneName('')
+      setCloneFile(null)
+    } catch (e) {
+      setCloneMsg({ ok: false, text: e instanceof Error ? e.message : 'Clone failed' })
+    } finally {
+      setCloning(false)
+    }
+  }
 
   async function handleGenerate() {
     if (!input.trim() || busy) return
@@ -269,6 +297,89 @@ export default function Home() {
         }}>
           <VoiceRow label="ALEX" color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
           <VoiceRow label="SAM"  color="var(--sam)"  voices={voices} selected={samVoice}  onSelect={setSamVoice}  />
+
+          {/* Clone voice toggle */}
+          <div style={{ marginTop: 4 }}>
+            <button
+              onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
+              style={{
+                fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
+                color: showClone ? 'var(--text)' : 'var(--muted)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', padding: 0,
+                transition: 'color 0.15s',
+              }}
+            >
+              {showClone ? '▾ CLONE VOICE' : '▸ CLONE VOICE'}
+            </button>
+
+            {showClone && (
+              <div style={{
+                marginTop: 10,
+                display: 'flex', flexDirection: 'column', gap: 8,
+                animation: 'slide-up 0.2s ease',
+              }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <input
+                    type="text"
+                    placeholder="voice name"
+                    value={cloneName}
+                    onChange={e => setCloneName(e.target.value)}
+                    style={{
+                      flex: 1, minWidth: 120,
+                      background: 'var(--card2)', border: '1px solid var(--border2)',
+                      color: 'var(--text)', fontSize: 11, padding: '7px 10px',
+                      borderRadius: 8, outline: 'none', fontFamily: 'inherit',
+                    }}
+                  />
+                  <label style={{
+                    flex: 2, minWidth: 160,
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    background: 'var(--card2)', border: '1px solid var(--border2)',
+                    borderRadius: 8, padding: '7px 10px', cursor: 'pointer',
+                    fontSize: 11, color: cloneFile ? 'var(--text)' : 'var(--muted)',
+                    overflow: 'hidden',
+                  }}>
+                    <span style={{ flexShrink: 0 }}>◎</span>
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {cloneFile ? cloneFile.name : 'upload WAV file'}
+                    </span>
+                    <input
+                      type="file"
+                      accept=".wav,audio/wav"
+                      style={{ display: 'none' }}
+                      onChange={e => setCloneFile(e.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <button
+                    onClick={handleClone}
+                    disabled={cloning || !cloneFile || !cloneName.trim()}
+                    style={{
+                      padding: '7px 16px', borderRadius: 8,
+                      fontFamily: 'inherit', fontWeight: 700, fontSize: 11,
+                      letterSpacing: '0.08em', cursor: 'pointer',
+                      border: 'none', transition: 'all 0.15s',
+                      background: cloning || !cloneFile || !cloneName.trim()
+                        ? 'var(--card2)' : 'var(--accent)',
+                      color: cloning || !cloneFile || !cloneName.trim()
+                        ? 'var(--muted)' : '#000',
+                    }}
+                  >
+                    {cloning ? '...' : 'CLONE'}
+                  </button>
+                </div>
+
+                {cloneMsg && (
+                  <p style={{
+                    margin: 0, fontSize: 10, letterSpacing: '0.08em',
+                    color: cloneMsg.ok ? 'var(--green)' : '#ff8566',
+                  }}>
+                    {cloneMsg.ok ? '✓' : '✗'} {cloneMsg.text}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Bottom toolbar */}

@@ -14,6 +14,18 @@ export async function fetchVoices(): Promise<VoiceList> {
   return res.json();
 }
 
+export async function cloneVoice(name: string, file: File): Promise<{ voice: string }> {
+  const form = new FormData();
+  form.append('name', name);
+  form.append('file', file);
+  const res = await fetch(`${TTS_URL}/tts/clone-voice`, { method: 'POST', body: form });
+  if (!res.ok) {
+    const msg = await res.text().catch(() => `HTTP ${res.status}`);
+    throw new Error(`Voice cloning failed: ${msg}`);
+  }
+  return res.json();
+}
+
 export async function generateVoice(text: string, voice: string): Promise<ArrayBuffer> {
   const res = await fetch(`${TTS_URL}/tts/generate`, {
     method: 'POST',
