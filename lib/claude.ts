@@ -1,26 +1,4 @@
-const SYSTEM_PROMPT = [
-  "You are a podcast script writer.",
-  "Write a short, punchy, 2-host dialogue.",
-  'Return ONLY lines in this exact format: "ALEX: ..." or "SAM: ...".',
-  "No intro, no title, no bullets, no stage directions, no markdown.",
-  "Keep it concise and natural.",
-].join(" ");
-
-const USER_PROMPT = (content: string) => `
-Write a sharp podcast dialogue based on the source below.
-
-Rules:
-- Two hosts only: Alex and Sam
-- Alex is curious, conversational, and asks sharp questions
-- Sam is direct, insightful, and gives no-fluff answers
-- 14 to 18 total lines
-- Every line must start with ALEX: or SAM:
-- End with a memorable one-line takeaway from Sam
-- Target roughly 90 seconds spoken duration
-
-Source:
-${content.trim().slice(0, 10000)}
-`.trim();
+import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompt";
 
 export async function generateScriptClaude(content: string): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
@@ -37,8 +15,8 @@ export async function generateScriptClaude(content: string): Promise<string> {
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
       max_tokens: 1200,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: USER_PROMPT(content) }],
+      system: buildSystemPrompt(),
+      messages: [{ role: "user", content: buildUserPrompt(content) }],
     }),
   });
 

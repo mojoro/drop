@@ -1,3 +1,10 @@
+import {
+  buildSystemPrompt,
+  buildUserPrompt,
+  buildRepairPrompt,
+  stripCodeFences,
+} from "@/lib/prompt";
+
 const FEATHERLESS_API_URL = "https://api.featherless.ai/v1/chat/completions";
 const DEFAULT_MODEL =
   process.env.FEATHERLESS_MODEL || "Qwen/Qwen2.5-7B-Instruct";
@@ -5,15 +12,6 @@ const DEFAULT_MODEL =
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Unknown error";
-}
-
-function stripCodeFences(text: string) {
-  return text.replace(/```[\s\S]*?```/g, (block) => {
-    return block
-      .replace(/^```[a-zA-Z]*\n?/, "")
-      .replace(/```$/, "")
-      .trim();
-  });
 }
 
 export function validatePodcastScript(script: string) {
@@ -79,30 +77,8 @@ export async function generateScriptFeatherless(content: string): Promise<string
     throw new Error("No content was provided to Featherless.");
   }
 
-  const systemPrompt = [
-    "You are a podcast script writer.",
-    "Write a short, punchy, 2-host dialogue.",
-    'Return ONLY lines in this exact format: "ALEX: ..." or "SAM: ...".',
-    "No intro, no title, no bullets, no stage directions, no markdown.",
-    "Keep it concise and natural.",
-  ].join(" ");
-
-  const userPrompt = `
-Write a sharp podcast dialogue based on the source below.
-
-Rules:
-- Two hosts only: Alex and Sam
-- Alex is curious, conversational, and asks sharp questions
-- Sam is direct, insightful, and gives no-fluff answers
-- 14 to 18 total lines
-- Every line must start with ALEX: or SAM:
-- End with a memorable one-line takeaway from Sam
-- Target roughly 90 seconds spoken duration
-- Keep the total spoken text between 1600 and 2600 characters
-
-Source:
-${cleanedContent}
-`.trim();
+  const systemPrompt = buildSystemPrompt();
+  const userPrompt = buildUserPrompt(cleanedContent);
 
   try {
     const firstPass = await callFeatherless([
@@ -114,23 +90,9 @@ ${cleanedContent}
       return firstPass;
     }
 
-    const repairPrompt = `
-Rewrite the text below into the required strict format.
-
-Rules:
-- Every non-empty line must start with ALEX: or SAM:
-- Keep the meaning
-- No extra commentary
-- 14 to 18 total lines
-- End with a memorable SAM line
-
-Text:
-${firstPass}
-`.trim();
-
     const repaired = await callFeatherless([
       { role: "system", content: systemPrompt },
-      { role: "user", content: repairPrompt },
+      { role: "user", content: buildRepairPrompt(firstPass) },
     ]);
 
     if (!validatePodcastScript(repaired)) {
