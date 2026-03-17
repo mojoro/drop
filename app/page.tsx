@@ -1,53 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-// ── Voice catalogue ────────────────────────────────────────────────────────
-const VOICES = [
-  { id: 'Fahco4VZzobUeiPqni1S', name: 'Archer',  desc: 'British · Warm',              gender: 'M' },
-  { id: 'BIvP0GN1cAtSRTxNHnWS', name: 'Ellen',   desc: 'German · Direct',             gender: 'F' },
-  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George',  desc: 'British · Warm',              gender: 'M' },
-  { id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  desc: 'British · Broadcast',         gender: 'M' },
-  { id: 'nPczCjzI2devNBz1zQrb', name: 'Brian',   desc: 'American · Deep',             gender: 'M' },
-  { id: 'cjVigY5qzO86Huf0OWal', name: 'Eric',    desc: 'American · Smooth',           gender: 'M' },
-  { id: 'bIHbv24MWmeRgasZH58o', name: 'Will',    desc: 'American · Casual',           gender: 'M' },
-  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger',   desc: 'American · Conversational',   gender: 'M' },
-  { id: 'iP95p4xoKVk53GoZ742B', name: 'Chris',   desc: 'American · Natural',          gender: 'M' },
-  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', desc: 'Australian · Energetic',      gender: 'M' },
-  { id: 'SAz9YHcvj6GT2YYXdXww', name: 'River',   desc: 'American · Neutral',          gender: 'N' },
-  { id: 'TX3LPaxmHKxFdv7VOQHJ', name: 'Liam',    desc: 'American · Warm',             gender: 'M' },
-  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah',   desc: 'American · Confident',        gender: 'F' },
-  { id: 'Xb7hH8MSUJpSbSDYk0k2', name: 'Alice',   desc: 'British · Clear',             gender: 'F' },
-  { id: 'XrExE9yKIg1WjnnlVkGX', name: 'Matilda', desc: 'American · Pro',              gender: 'F' },
-  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura',   desc: 'American · Energetic',        gender: 'F' },
-  { id: 'ErXwobaYiN019PkySvjV', name: 'Antonia', desc: 'American · Authoritative',    gender: 'F' },
-  { id: 'cgSgspJ2msm6clMCkdW9', name: 'Jessica', desc: 'American · Bright & Warm',   gender: 'F' },
-  { id: 'pFZP5JQG7iQjIQuC4Bku', name: 'Lily',    desc: 'British · Velvety',           gender: 'F' },
-]
-
-// ── Pipeline stages ────────────────────────────────────────────────────────
-const PIPELINE_STAGES = [
-  { id: 'extracting', label: 'NEEDLE',     sub: 'Content extraction', icon: '◎' },
-  { id: 'writing',   label: 'FEATHERLESS', sub: 'Script generation',  icon: '◈' },
-  { id: 'audio',     label: 'ELEVENLABS',  sub: 'Voice synthesis',    icon: '◉' },
-]
-
+// ── Types ────────────────────────────────────────────────────────────────────
+type Voice = { id: string; name: string; type: 'builtin' | 'custom' }
 type Stage = 'idle' | 'extracting' | 'writing' | 'audio' | 'done' | 'error'
 type ScriptLine = { speaker: 'ALEX' | 'SAM'; text: string }
-type Result = { scriptLines: ScriptLine[]; audio: string | null }
+type Result = { scriptLines: ScriptLine[]; audio: string | null; scriptBackend?: 'ollama' | 'featherless' | 'claude' }
+
+// ── Fallback voices (used when sidecar is offline) ───────────────────────────
+const FALLBACK_VOICES: Voice[] = [
+  'alba', 'marius', 'javert', 'jean', 'fantine', 'cosette', 'eponine', 'azelma',
+].map(name => ({ id: name, name, type: 'builtin' as const }))
+
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+// ── Pipeline stages ──────────────────────────────────────────────────────────
+const PIPELINE_STAGES = [
+  { id: 'extracting', label: 'SCRAPE',  sub: 'Content extraction',  icon: '◎' },
+  { id: 'writing',    label: 'SCRIPT',  sub: 'Dialogue generation', icon: '◈' },
+  { id: 'audio',      label: 'VOICE',   sub: 'Speech synthesis',    icon: '◉' },
+]
 
 function stageIndex(s: Stage) {
   return ['extracting', 'writing', 'audio', 'done'].indexOf(s)
 }
 
-// ── Pipeline ───────────────────────────────────────────────────────────────
-// Flat structure: node · line · node · line · node — avoids flex-1 offset bug
+// ── Pipeline visualization ───────────────────────────────────────────────────
 function PipelineViz({ stage }: { stage: Stage }) {
   const active = stageIndex(stage)
 
   return (
     <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
-      {/* Node row */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         {PIPELINE_STAGES.map((s, i) => {
           const done    = active > i
@@ -55,7 +41,6 @@ function PipelineViz({ stage }: { stage: Stage }) {
 
           return (
             <div key={s.id} style={{ display: 'flex', alignItems: 'center' }}>
-              {/* Node */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: 80 }}>
                 <div
                   className={current ? 'pipeline-active' : ''}
@@ -89,7 +74,6 @@ function PipelineViz({ stage }: { stage: Stage }) {
                 </div>
               </div>
 
-              {/* Connector line — only between nodes */}
               {i < PIPELINE_STAGES.length - 1 && (
                 <div style={{ width: 48, height: 1, background: 'var(--border)', position: 'relative', overflow: 'hidden', flexShrink: 0 }}>
                   {done && (
@@ -108,52 +92,89 @@ function PipelineViz({ stage }: { stage: Stage }) {
   )
 }
 
-// ── Voice selector ─────────────────────────────────────────────────────────
-function VoiceSelector({
-  label, color, voiceId, onChange,
-}: { label: string; color: string; voiceId: string; onChange: (id: string) => void }) {
+// ── Voice pill ───────────────────────────────────────────────────────────────
+function VoicePill({ voice, selected, color, onClick }: {
+  voice: Voice; selected: boolean; color: string; onClick: () => void
+}) {
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <label style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.15em', color }}>{label}</label>
-      <select
-        value={voiceId}
-        onChange={e => onChange(e.target.value)}
-        aria-label={`Voice for ${label}`}
-        style={{
-          width: '100%',
-          background: 'var(--card2)',
-          border: '1px solid var(--border2)',
-          color: 'var(--text)',
-          fontSize: 12,
-          padding: '8px 28px 8px 10px',
-          borderRadius: 8,
-          outline: 'none',
-          cursor: 'pointer',
-          appearance: 'none',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'right 10px center',
-        }}
-      >
-        {VOICES.map(v => (
-          <option key={v.id} value={v.id}>{v.name} — {v.desc}</option>
+    <button
+      onClick={onClick}
+      style={{
+        padding: '5px 12px',
+        borderRadius: 8,
+        fontSize: 11,
+        fontWeight: selected ? 700 : 400,
+        fontFamily: 'inherit',
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        border: `1px solid ${selected ? color : 'var(--border2)'}`,
+        background: selected ? color : 'transparent',
+        color: selected ? '#000' : 'var(--muted)',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {capitalize(voice.name)}
+      {voice.type === 'custom' && (
+        <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.7 }}>*</span>
+      )}
+    </button>
+  )
+}
+
+// ── Voice row ────────────────────────────────────────────────────────────────
+function VoiceRow({ label, color, voices, selected, onSelect }: {
+  label: string; color: string; voices: Voice[]; selected: string; onSelect: (id: string) => void
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
+        color, width: 32, flexShrink: 0,
+      }}>
+        {label}
+      </span>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        {voices.map(v => (
+          <VoicePill
+            key={v.id}
+            voice={v}
+            selected={v.id === selected}
+            color={color}
+            onClick={() => onSelect(v.id)}
+          />
         ))}
-      </select>
+      </div>
     </div>
   )
 }
 
-// ── Main page ──────────────────────────────────────────────────────────────
+// ── Main page ────────────────────────────────────────────────────────────────
 export default function Home() {
-  const [input,       setInput]       = useState('')
-  const [stage,       setStage]       = useState<Stage>('idle')
-  const [result,      setResult]      = useState<Result | null>(null)
-  const [error,       setError]       = useState<string | null>(null)
-  const [alexVoiceId, setAlexVoiceId] = useState('Fahco4VZzobUeiPqni1S')
-  const [samVoiceId,  setSamVoiceId]  = useState('BIvP0GN1cAtSRTxNHnWS')
-  const [showConfig,  setShowConfig]  = useState(false)
+  const [input,      setInput]      = useState('')
+  const [stage,      setStage]      = useState<Stage>('idle')
+  const [result,     setResult]     = useState<Result | null>(null)
+  const [error,      setError]      = useState<string | null>(null)
+  const [alexVoice,  setAlexVoice]  = useState('alba')
+  const [samVoice,   setSamVoice]   = useState('marius')
+  const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
+  const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null) // null = checking
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
+
+  // Fetch available voices from the TTS sidecar on mount
+  useEffect(() => {
+    fetch('/api/voices')
+      .then(res => res.ok ? res.json() : Promise.reject(res))
+      .then((data: { builtin: string[]; custom: string[] }) => {
+        const all: Voice[] = [
+          ...data.builtin.map(name => ({ id: name, name, type: 'builtin' as const })),
+          ...data.custom.map(name => ({ id: name, name, type: 'custom' as const })),
+        ]
+        if (all.length > 0) setVoices(all)
+        setTtsOnline(true)
+      })
+      .catch(() => setTtsOnline(false))
+  }, [])
 
   async function handleGenerate() {
     if (!input.trim() || busy) return
@@ -165,7 +186,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoiceId, samVoiceId }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -178,13 +199,10 @@ export default function Home() {
     }
   }
 
-  const alexVoice = VOICES.find(v => v.id === alexVoiceId)
-  const samVoice  = VOICES.find(v => v.id === samVoiceId)
-
   const stageLabel =
-    stage === 'extracting' ? '◎ EXTRACTING CONTENT VIA NEEDLE...' :
-    stage === 'writing'    ? '◈ GENERATING SCRIPT VIA FEATHERLESS...' :
-    stage === 'audio'      ? '◉ SYNTHESISING VOICES VIA ELEVENLABS...' : ''
+    stage === 'extracting' ? '◎ SCRAPING CONTENT...' :
+    stage === 'writing'    ? '◈ GENERATING SCRIPT...' :
+    stage === 'audio'      ? '◉ SYNTHESISING VOICES...' : ''
 
   return (
     <main style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: 'clamp(32px, 5vw, 56px) 16px 80px' }}>
@@ -204,7 +222,7 @@ export default function Home() {
           DROP
         </h1>
         <p style={{ color: 'var(--muted)', fontSize: 'clamp(9px, 2vw, 11px)', letterSpacing: '0.18em', marginTop: 8 }}>
-          PASTE A URL OR TOPIC · GET A PODCAST IN 60s
+          PASTE A URL OR TOPIC · LOCAL PODCAST GENERATION
         </p>
       </div>
 
@@ -243,6 +261,16 @@ export default function Home() {
           />
         </div>
 
+        {/* Voice selection */}
+        <div style={{
+          borderTop: '1px solid var(--border)',
+          padding: '14px 20px',
+          display: 'flex', flexDirection: 'column', gap: 8,
+        }}>
+          <VoiceRow label="ALEX" color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
+          <VoiceRow label="SAM"  color="var(--sam)"  voices={voices} selected={samVoice}  onSelect={setSamVoice}  />
+        </div>
+
         {/* Bottom toolbar */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -250,30 +278,23 @@ export default function Home() {
           borderTop: '1px solid var(--border)',
           background: 'var(--card2)',
           gap: 12,
-          flexWrap: 'wrap',
         }}>
-          <button
-            onClick={() => setShowConfig(c => !c)}
-            aria-label="Configure voices"
-            aria-expanded={showConfig}
-            className="config-toggle"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '8px 12px',
-              borderRadius: 10,
-              border: `1px solid ${showConfig ? 'var(--border2)' : 'transparent'}`,
-              background: showConfig ? 'var(--card)' : 'transparent',
-              cursor: 'pointer',
-              minHeight: 44,
-              transition: 'all 0.2s ease',
-            }}
-          >
-            <span style={{ fontSize: 16, lineHeight: 1, transition: 'transform 0.2s ease', display: 'inline-block', transform: showConfig ? 'rotate(30deg)' : 'rotate(0deg)', color: showConfig ? 'var(--text)' : 'var(--muted)' }}>⚙</span>
-            <span style={{ display: 'inline-block', width: 1, height: 16, background: 'var(--border2)', margin: '0 2px', flexShrink: 0 }} />
-            <span style={{ fontSize: 13, color: 'var(--alex)', fontWeight: 600, lineHeight: 1 }}>{alexVoice?.name}</span>
-            <span style={{ fontSize: 12, color: 'var(--muted2)', lineHeight: 1 }}>×</span>
-            <span style={{ fontSize: 13, color: 'var(--sam)', fontWeight: 600, lineHeight: 1 }}>{samVoice?.name}</span>
-          </button>
+          {/* Sidecar status */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: '50%',
+              background: ttsOnline === true ? 'var(--green)'
+                        : ttsOnline === false ? 'var(--accent)'
+                        : 'var(--muted2)',
+              boxShadow: ttsOnline === true ? '0 0 6px rgba(74,222,128,0.4)' : 'none',
+              transition: 'all 0.3s ease',
+            }} />
+            <span style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.08em' }}>
+              {ttsOnline === true ? 'TTS ONLINE'
+               : ttsOnline === false ? 'TTS OFFLINE'
+               : 'CHECKING...'}
+            </span>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="cmd-hint" style={{
@@ -285,8 +306,8 @@ export default function Home() {
             </span>
             <button
               onClick={handleGenerate}
-              disabled={busy}
-              aria-label={busy ? 'Processing…' : 'Generate podcast'}
+              disabled={busy || ttsOnline === false}
+              aria-label={busy ? 'Processing...' : 'Generate podcast'}
               style={{
                 padding: '10px 24px',
                 borderRadius: 12,
@@ -296,36 +317,24 @@ export default function Home() {
                 letterSpacing: '0.08em',
                 minWidth: 148,
                 minHeight: 44,
-                cursor: busy ? 'not-allowed' : 'pointer',
+                cursor: (busy || ttsOnline === false) ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 border: busy ? '1px solid var(--border2)' : 'none',
-                background: busy           ? 'transparent'
-                          : !input.trim()  ? '#2a2a2a'
-                          :                  'var(--accent)',
-                color:      busy           ? 'var(--muted)'
-                          : !input.trim()  ? '#888'
-                          :                  '#000',
-                boxShadow: !busy && input.trim() ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
+                background: busy                        ? 'transparent'
+                          : ttsOnline === false          ? '#1a1a1a'
+                          : !input.trim()               ? '#2a2a2a'
+                          :                               'var(--accent)',
+                color:      busy                        ? 'var(--muted)'
+                          : (ttsOnline === false || !input.trim()) ? '#666'
+                          :                               '#000',
+                boxShadow: !busy && input.trim() && ttsOnline !== false
+                  ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
               }}
             >
-              {busy ? '● PROCESSING…' : '▶ GENERATE'}
+              {busy ? '● PROCESSING...' : '▶ GENERATE'}
             </button>
           </div>
         </div>
-
-        {showConfig && (
-          <div style={{
-            borderTop: '1px solid var(--border)',
-            padding: '16px 20px',
-            display: 'flex',
-            gap: 12,
-            animation: 'slide-up 0.2s ease',
-            flexWrap: 'wrap',
-          }}>
-            <VoiceSelector label="ALEX" color="var(--alex)" voiceId={alexVoiceId} onChange={setAlexVoiceId} />
-            <VoiceSelector label="SAM"  color="var(--sam)"  voiceId={samVoiceId}  onChange={setSamVoiceId}  />
-          </div>
-        )}
       </div>
 
       {/* ── Error ── */}
@@ -361,9 +370,11 @@ export default function Home() {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <span style={{ color: 'var(--accent)', fontSize: 13 }}>◉</span>
                 <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>PODCAST EPISODE</span>
-                <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>{alexVoice?.name} × {samVoice?.name}</span>
+                <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>
+                  {capitalize(alexVoice)} × {capitalize(samVoice)}
+                </span>
               </div>
-              <audio controls autoPlay className="w-full" src={`data:audio/mpeg;base64,${result.audio}`} />
+              <audio controls autoPlay className="w-full" src={`data:audio/wav;base64,${result.audio}`} />
             </div>
           )}
 
@@ -394,7 +405,9 @@ export default function Home() {
 
           {/* Footer row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
-            <span style={{ color: 'var(--muted2)', fontSize: 10, letterSpacing: '0.1em' }}>NEEDLE · FEATHERLESS · ELEVENLABS</span>
+            <span style={{ color: 'var(--muted2)', fontSize: 10, letterSpacing: '0.1em' }}>
+              LOCAL TTS · POCKET-TTS{result.scriptBackend ? ` · ${result.scriptBackend.toUpperCase()}` : ''}
+            </span>
             <button
               onClick={() => navigator.clipboard.writeText(result.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))}
               style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.1em', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}

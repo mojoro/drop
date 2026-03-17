@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { extractContent } from "@/lib/needle";
 import { generateScriptFeatherless } from "@/lib/featherless";
 import { generateScriptClaude } from "@/lib/claude";
+import { generateScriptOllama } from "@/lib/ollama";
 import { parseScript, getScriptStats } from "@/lib/script";
-import { generateVoice, ALEX_VOICE_ID, SAM_VOICE_ID } from "@/lib/elevenlabs";
-import { stitchAudio } from "@/lib/audioStitching";
+import { generateVoice, DEFAULT_ALEX_VOICE, DEFAULT_SAM_VOICE } from "@/lib/tts";
+import { stitchWav } from "@/lib/wavStitching";
 
 export const runtime = "nodejs";
+
+type ScriptBackend = "ollama" | "featherless" | "claude";
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -22,35 +25,56 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing input" }, { status: 400 });
     }
 
-    const alexVoiceId = typeof body?.alexVoiceId === "string" ? body.alexVoiceId : ALEX_VOICE_ID;
-    const samVoiceId  = typeof body?.samVoiceId  === "string" ? body.samVoiceId  : SAM_VOICE_ID;
+    const alexVoice = typeof body?.alexVoice === "string" ? body.alexVoice : DEFAULT_ALEX_VOICE;
+    const samVoice  = typeof body?.samVoice  === "string" ? body.samVoice  : DEFAULT_SAM_VOICE;
 
     const extracted = await extractContent(input);
 
-    let script: string;
-    try {
-      script = await generateScriptFeatherless(extracted);
-    } catch (featherlessError) {
-      console.warn("Featherless failed, falling back to Claude:", featherlessError);
-      script = await generateScriptClaude(extracted);
+    // ── Script generation: Ollama → Featherless → Claude ───────────────────
+    let script: string | undefined;
+    let scriptBackend: ScriptBackend = "claude";
+
+    if (process.env.OLLAMA_MODEL) {
+      try {
+        script = await generateScriptOllama(extracted);
+        scriptBackend = "ollama";
+      } catch (e) {
+        console.warn("Ollama failed, falling back:", e);
+      }
     }
+
+    if (script === undefined) {
+      try {
+        script = await generateScriptFeatherless(extracted);
+        scriptBackend = "featherless";
+      } catch (e) {
+        console.warn("Featherless failed, falling back to Claude:", e);
+      }
+    }
+
+    if (script === undefined) {
+      script = await generateScriptClaude(extracted);
+      scriptBackend = "claude";
+    }
+
     const scriptLines = parseScript(script);
     const stats = getScriptStats(scriptLines);
 
-    // Generate audio per line in dialogue order, then stitch into one file
+    // ── TTS: generate per line, stitch into one WAV ─────────────────────────
     const buffers: ArrayBuffer[] = [];
     for (const line of scriptLines) {
-      const voiceId = line.speaker === "ALEX" ? alexVoiceId : samVoiceId;
-      const buf = await generateVoice(line.text, voiceId);
+      const voice = line.speaker === "ALEX" ? alexVoice : samVoice;
+      const buf = await generateVoice(line.text, voice);
       buffers.push(buf);
     }
 
-    const stitched = stitchAudio(buffers);
+    const stitched = stitchWav(buffers);
     const audio = Buffer.from(stitched).toString("base64");
 
     return NextResponse.json({
       scriptLines,
       audio,
+      scriptBackend,
       debug: {
         extractedPreview: extracted.slice(0, 2500),
         rawScript: script,
