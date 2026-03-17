@@ -1,5 +1,5 @@
-# Drop
+# ElevenLabPodcast
 
-Born from the project for the AI Hackathon on 14. March 2026. 
+This is the project for the AI Hackathon on 14. March 2026. The time frame was about three hours.
 
-An enthusiastic user wanted the ability to run this themselves and bring their own keys to an app with more configuration. This is me making that happen.
+The idea is to generate a podcast about a given webpage using ElevenLabs.
