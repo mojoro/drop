@@ -396,8 +396,16 @@ export default function Home() {
     try {
       const res = await fetch(`/api/library/${p.id}/audio`)
       if (!res.ok) throw new Error('Audio not found')
-      const buf = await res.arrayBuffer()
-      const audio = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      const blob = await res.blob()
+      const audio = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          resolve(dataUrl.split(',')[1])
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
       setResult({ scriptLines: p.scriptLines, audio, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
       setStage('done')
     } catch {
