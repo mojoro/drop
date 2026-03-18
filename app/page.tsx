@@ -288,6 +288,7 @@ export default function Home() {
   const mediaRecRef    = useRef<MediaRecorder | null>(null)
   const chunksRef      = useRef<Blob[]>([])
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
+  const abortRef       = useRef<AbortController | null>(null)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
 
@@ -448,8 +449,18 @@ export default function Home() {
     }
   }
 
+  function handleCancel() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStage('idle')
+    setError(null)
+  }
+
   async function handleGenerate() {
     if (!input.trim() || busy) return
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
     setStage('extracting')
     setResult(null)
     setError(null)
@@ -459,6 +470,7 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength }),
+        signal: ac.signal,
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -466,13 +478,19 @@ export default function Home() {
       setResult(data)
       setStage('done')
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
       setStage('error')
       setError(e instanceof Error ? e.message : 'Something went wrong')
+    } finally {
+      abortRef.current = null
     }
   }
 
   async function handleResynthesize() {
     if (!result?.scriptLines || busy) return
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
     setStage('audio')
     setError(null)
     try {
@@ -480,20 +498,25 @@ export default function Home() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptLines: result.scriptLines, alexVoice, samVoice }),
+        signal: ac.signal,
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
       setResult(prev => prev ? { ...prev, audio: data.audio } : prev)
       setStage('done')
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
       setStage('error')
       setError(e instanceof Error ? e.message : 'Re-synthesis failed')
+    } finally {
+      abortRef.current = null
     }
   }
 
   async function handleDownloadMp3() {
     if (!result?.audio) return
-    const lamejs = await import('lamejs')
+    const mod = await import('lamejs')
+    const Mp3Encoder = mod.Mp3Encoder ?? (mod as any).default?.Mp3Encoder
     // Decode WAV base64 → PCM samples
     const wavBytes = Uint8Array.from(atob(result.audio), c => c.charCodeAt(0))
     const view = new DataView(wavBytes.buffer)
@@ -515,7 +538,7 @@ export default function Home() {
       samples[i] = view.getInt16(dataOffset + i * bytesPerSample * numChannels, true)
     }
     // Encode MP3
-    const encoder = new lamejs.Mp3Encoder(1, sampleRate, 128)
+    const encoder = new Mp3Encoder(1, sampleRate, 128)
     const mp3Chunks: Uint8Array[] = []
     const blockSize = 1152
     for (let i = 0; i < samples.length; i += blockSize) {
@@ -1061,35 +1084,56 @@ export default function Home() {
               <span style={{ fontSize: 18 }}>⌘</span>
               <span style={{ fontSize: 14, position: 'relative', top: -3, right: -3 }}>↵</span>
             </span>
-            <button
-              onClick={handleGenerate}
-              disabled={busy || ttsOnline === false}
-              aria-label={busy ? 'Processing...' : 'Generate podcast'}
-              style={{
-                padding: '10px 24px',
-                borderRadius: 12,
-                fontFamily: 'inherit',
-                fontWeight: 700,
-                fontSize: 13,
-                letterSpacing: '0.08em',
-                minWidth: 148,
-                minHeight: 44,
-                cursor: (busy || ttsOnline === false) ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s ease',
-                border: busy ? '1px solid var(--border2)' : 'none',
-                background: busy                        ? 'transparent'
-                          : ttsOnline === false          ? '#1a1a1a'
-                          : !input.trim()               ? '#2a2a2a'
-                          :                               'var(--accent)',
-                color:      busy                        ? 'var(--muted)'
-                          : (ttsOnline === false || !input.trim()) ? '#666'
-                          :                               '#000',
-                boxShadow: !busy && input.trim() && ttsOnline !== false
-                  ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
-              }}
-            >
-              {busy ? '● PROCESSING...' : '▶ GENERATE'}
-            </button>
+            {busy ? (
+              <button
+                onClick={handleCancel}
+                aria-label="Cancel generation"
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 12,
+                  fontFamily: 'inherit',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: '0.08em',
+                  minWidth: 148,
+                  minHeight: 44,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  border: '1px solid var(--border2)',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                }}
+              >
+                ■ CANCEL
+              </button>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                disabled={ttsOnline === false}
+                aria-label="Generate podcast"
+                style={{
+                  padding: '10px 24px',
+                  borderRadius: 12,
+                  fontFamily: 'inherit',
+                  fontWeight: 700,
+                  fontSize: 13,
+                  letterSpacing: '0.08em',
+                  minWidth: 148,
+                  minHeight: 44,
+                  cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s ease',
+                  border: 'none',
+                  background: ttsOnline === false  ? '#1a1a1a'
+                            : !input.trim()        ? '#2a2a2a'
+                            :                        'var(--accent)',
+                  color: (ttsOnline === false || !input.trim()) ? '#666' : '#000',
+                  boxShadow: input.trim() && ttsOnline !== false
+                    ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
+                }}
+              >
+                ▶ GENERATE
+              </button>
+            )}
           </div>
         </div>
       </div>
