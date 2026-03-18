@@ -129,58 +129,43 @@ function PipelineViz({ stage }: { stage: Stage }) {
   )
 }
 
-// ── Voice pill ───────────────────────────────────────────────────────────────
-function VoicePill({ voice, selected, color, onClick }: {
-  voice: Voice; selected: boolean; color: string; onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: '5px 12px',
-        borderRadius: 8,
-        fontSize: 11,
-        fontWeight: selected ? 700 : 400,
-        fontFamily: 'inherit',
-        cursor: 'pointer',
-        transition: 'all 0.15s ease',
-        border: `1px solid ${selected ? color : 'var(--border2)'}`,
-        background: selected ? color : 'transparent',
-        color: selected ? '#000' : 'var(--muted)',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {capitalize(voice.name)}
-      {voice.type === 'custom' && (
-        <span style={{ marginLeft: 4, fontSize: 9, opacity: 0.7 }}>*</span>
-      )}
-    </button>
-  )
-}
-
-// ── Voice row ────────────────────────────────────────────────────────────────
-function VoiceRow({ label, color, voices, selected, onSelect }: {
+// ── Voice select (compact dropdown) ─────────────────────────────────────────
+function VoiceSelect({ label, color, voices, selected, onSelect }: {
   label: string; color: string; voices: Voice[]; selected: string; onSelect: (id: string) => void
 }) {
+  const builtin = voices.filter(v => v.type === 'builtin')
+  const custom = voices.filter(v => v.type === 'custom')
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-      <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.12em',
-        color, width: 32, flexShrink: 0,
-      }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color }}>
         {label}
       </span>
-      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-        {voices.map(v => (
-          <VoicePill
-            key={v.id}
-            voice={v}
-            selected={v.id === selected}
-            color={color}
-            onClick={() => onSelect(v.id)}
-          />
-        ))}
-      </div>
+      <select
+        value={selected}
+        onChange={e => onSelect(e.target.value)}
+        style={{
+          padding: '5px 28px 5px 10px',
+          borderRadius: 8, fontSize: 11,
+          fontFamily: 'inherit', fontWeight: 600,
+          background: 'var(--card2)', border: `1px solid ${color}40`,
+          color: 'var(--text)', cursor: 'pointer', outline: 'none',
+        }}
+      >
+        {builtin.length > 0 && (
+          <optgroup label="Built-in">
+            {builtin.map(v => (
+              <option key={v.id} value={v.id}>{capitalize(v.name)}</option>
+            ))}
+          </optgroup>
+        )}
+        {custom.length > 0 && (
+          <optgroup label="Custom">
+            {custom.map(v => (
+              <option key={v.id} value={v.id}>{capitalize(v.name)}</option>
+            ))}
+          </optgroup>
+        )}
+      </select>
     </div>
   )
 }
@@ -400,6 +385,57 @@ export default function Home() {
   async function handleDeletePodcast(id: string) {
     await fetch(`/api/library/${id}`, { method: 'DELETE' })
     refreshLibrary()
+  }
+
+  function handleLoadPodcast(p: SavedPodcast) {
+    setInput(p.input || p.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))
+    setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+    if (p.alexVoice) setAlexVoice(p.alexVoice)
+    if (p.samVoice) setSamVoice(p.samVoice)
+    setStage('done')
+    setShowLibrary(false)
+  }
+
+  function inputLooksLikeTranscript(): boolean {
+    const lines = input.trim().split('\n').filter(Boolean)
+    return lines.length >= 2 && lines.every(l => /^(ALEX|SAM):\s/i.test(l.trim()))
+  }
+
+  async function handleVoiceTranscript() {
+    if (!input.trim() || busy) return
+    const lines = input.trim().split('\n').map(l => l.trim()).filter(Boolean)
+    const scriptLines = lines.map(l => {
+      const m = l.match(/^(ALEX|SAM):\s*(.+)$/i)
+      if (!m) return null
+      return { speaker: m[1].toUpperCase() as 'ALEX' | 'SAM', text: m[2].trim() }
+    }).filter((l): l is ScriptLine => l !== null)
+
+    if (scriptLines.length === 0) return
+
+    abortRef.current?.abort()
+    const ac = new AbortController()
+    abortRef.current = ac
+    setStage('audio')
+    setError(null)
+    setResult({ scriptLines, audio: null, scriptBackend: 'manual' as any })
+    try {
+      const res = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptLines, alexVoice, samVoice }),
+        signal: ac.signal,
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setResult({ scriptLines, audio: data.audio, scriptBackend: 'manual' as any })
+      setStage('done')
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') return
+      setStage('error')
+      setError(e instanceof Error ? e.message : 'Voicing failed')
+    } finally {
+      abortRef.current = null
+    }
   }
 
   async function handleSaveProfile() {
@@ -855,6 +891,20 @@ export default function Home() {
                         <span>{p.scriptBackend.toUpperCase()}</span>
                       </div>
                     </div>
+                    <button
+                      onClick={() => handleLoadPodcast(p)}
+                      style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 9,
+                        fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'inherit',
+                        cursor: 'pointer', border: '1px solid var(--border2)',
+                        background: 'transparent', color: 'var(--muted)',
+                        transition: 'all 0.15s', flexShrink: 0,
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--accent)' }}
+                      onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+                    >
+                      LOAD
+                    </button>
                     <audio
                       controls
                       src={`/api/library/${p.id}/audio`}
@@ -919,35 +969,36 @@ export default function Home() {
         {/* Voice selection */}
         <div style={{
           borderTop: '1px solid var(--border)',
-          padding: '14px 20px',
-          display: 'flex', flexDirection: 'column', gap: 8,
+          padding: '12px 20px',
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
         }}>
-          <VoiceRow label="ALEX" color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
-          <VoiceRow label="SAM"  color="var(--sam)"  voices={voices} selected={samVoice}  onSelect={setSamVoice}  />
+          <VoiceSelect label="ALEX" color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
+          <VoiceSelect label="SAM" color="var(--sam)" voices={voices} selected={samVoice} onSelect={setSamVoice} />
 
-          {/* Clone voice toggle */}
-          <div style={{ marginTop: 4 }}>
-            <button
-              onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
-              style={{
-                fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
-                color: showClone ? 'var(--text)' : 'var(--muted)',
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontFamily: 'inherit', padding: 0,
-                transition: 'color 0.15s',
-              }}
-            >
-              {showClone ? '▾ CLONE VOICE' : '▸ CLONE VOICE'}
-            </button>
+          <button
+            onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
+            style={{
+              fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
+              color: showClone ? 'var(--text)' : 'var(--muted)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontFamily: 'inherit', padding: 0, marginLeft: 'auto',
+              transition: 'color 0.15s',
+            }}
+          >
+            {showClone ? '▾ CLONE' : '+ CLONE'}
+          </button>
 
-            {showClone && (
-              <div style={{
-                marginTop: 10,
-                display: 'flex', flexDirection: 'column', gap: 8,
-                animation: 'slide-up 0.2s ease',
-              }}>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <input
+        </div>
+
+        {showClone && (
+          <div style={{
+            borderTop: '1px solid var(--border)',
+            padding: '12px 20px',
+            display: 'flex', flexDirection: 'column', gap: 8,
+            animation: 'slide-up 0.2s ease',
+          }}>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <input
                     type="text"
                     placeholder="voice name"
                     value={cloneName}
@@ -1017,18 +1068,16 @@ export default function Home() {
                   </button>
                 </div>
 
-                {cloneMsg && (
-                  <p style={{
-                    margin: 0, fontSize: 10, letterSpacing: '0.08em',
-                    color: cloneMsg.ok ? 'var(--green)' : '#ff8566',
-                  }}>
-                    {cloneMsg.ok ? '✓' : '✗'} {cloneMsg.text}
-                  </p>
-                )}
-              </div>
+            {cloneMsg && (
+              <p style={{
+                margin: 0, fontSize: 10, letterSpacing: '0.08em',
+                color: cloneMsg.ok ? 'var(--green)' : '#ff8566',
+              }}>
+                {cloneMsg.ok ? '✓' : '✗'} {cloneMsg.text}
+              </p>
             )}
           </div>
-        </div>
+        )}
 
         {/* Bottom toolbar */}
         <div style={{
@@ -1107,32 +1156,57 @@ export default function Home() {
                 ■ CANCEL
               </button>
             ) : (
-              <button
-                onClick={handleGenerate}
-                disabled={ttsOnline === false}
-                aria-label="Generate podcast"
-                style={{
-                  padding: '10px 24px',
-                  borderRadius: 12,
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  letterSpacing: '0.08em',
-                  minWidth: 148,
-                  minHeight: 44,
-                  cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
-                  transition: 'all 0.2s ease',
-                  border: 'none',
-                  background: ttsOnline === false  ? '#1a1a1a'
-                            : !input.trim()        ? '#2a2a2a'
-                            :                        'var(--accent)',
-                  color: (ttsOnline === false || !input.trim()) ? '#666' : '#000',
-                  boxShadow: input.trim() && ttsOnline !== false
-                    ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
-                }}
-              >
-                ▶ GENERATE
-              </button>
+              <>
+                {inputLooksLikeTranscript() && (
+                  <button
+                    onClick={handleVoiceTranscript}
+                    disabled={ttsOnline === false}
+                    aria-label="Voice this transcript"
+                    style={{
+                      padding: '10px 18px',
+                      borderRadius: 12,
+                      fontFamily: 'inherit',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      letterSpacing: '0.08em',
+                      minHeight: 44,
+                      cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
+                      transition: 'all 0.2s ease',
+                      border: '1px solid var(--sam)',
+                      background: 'transparent',
+                      color: 'var(--sam)',
+                    }}
+                  >
+                    ◉ VOICE IT
+                  </button>
+                )}
+                <button
+                  onClick={handleGenerate}
+                  disabled={ttsOnline === false}
+                  aria-label="Generate podcast"
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: 12,
+                    fontFamily: 'inherit',
+                    fontWeight: 700,
+                    fontSize: 13,
+                    letterSpacing: '0.08em',
+                    minWidth: 148,
+                    minHeight: 44,
+                    cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
+                    transition: 'all 0.2s ease',
+                    border: 'none',
+                    background: ttsOnline === false  ? '#1a1a1a'
+                              : !input.trim()        ? '#2a2a2a'
+                              :                        'var(--accent)',
+                    color: (ttsOnline === false || !input.trim()) ? '#666' : '#000',
+                    boxShadow: input.trim() && ttsOnline !== false
+                      ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
+                  }}
+                >
+                  ▶ GENERATE
+                </button>
+              </>
             )}
           </div>
         </div>
