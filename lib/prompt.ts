@@ -58,10 +58,14 @@ ${firstPass}
 }
 
 export function stripCodeFences(text: string): string {
-  return text.replace(/```[\s\S]*?```/g, (block) => {
+  // Remove <think>...</think> blocks (Qwen, DeepSeek thinking mode)
+  let cleaned = text.replace(/<think>[\s\S]*?<\/think>/gi, "");
+  // Remove markdown code fences
+  cleaned = cleaned.replace(/```[\s\S]*?```/g, (block) => {
     return block
       .replace(/^```[a-zA-Z]*\n?/, "")
       .replace(/```$/, "")
       .trim();
   });
+  return cleaned;
 }

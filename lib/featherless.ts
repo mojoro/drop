@@ -16,20 +16,21 @@ function errorMessage(error: unknown) {
   return "Unknown error";
 }
 
-export function validatePodcastScript(script: string, length: ScriptLength = "short") {
-  const lines = script
+/** Extract valid ALEX:/SAM: lines from raw model output. */
+export function extractValidLines(script: string): string[] {
+  return script
     .split("\n")
     .map((line) => line.trim())
-    .filter(Boolean);
+    .filter((line) => /^(ALEX|SAM):\s.+/i.test(line));
+}
 
+export function validatePodcastScript(script: string, length: ScriptLength = "short") {
+  const lines = extractValidLines(script);
   const minLines = Math.max(4, getLengthConfig(length).lines[0] - 4);
   if (lines.length < minLines) return false;
 
-  const everyLineValid = lines.every((line) => /^(ALEX|SAM):\s.+/.test(line));
-  if (!everyLineValid) return false;
-
-  const hasAlex = lines.some((line) => line.startsWith("ALEX:"));
-  const hasSam = lines.some((line) => line.startsWith("SAM:"));
+  const hasAlex = lines.some((line) => /^ALEX:/i.test(line));
+  const hasSam = lines.some((line) => /^SAM:/i.test(line));
 
   return hasAlex && hasSam;
 }

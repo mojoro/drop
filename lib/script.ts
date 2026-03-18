@@ -4,22 +4,25 @@ export type ScriptLine = {
 };
 
 export function parseScript(script: string): ScriptLine[] {
-  return script
+  const lines = script
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
       const match = line.match(/^(ALEX|SAM):\s*(.+)$/i);
-
-      if (!match) {
-        throw new Error("Invalid script line format returned by model.");
-      }
-
+      if (!match) return null;
       return {
         speaker: match[1].toUpperCase() as "ALEX" | "SAM",
         text: match[2].trim(),
       };
-    });
+    })
+    .filter((line): line is ScriptLine => line !== null);
+
+  if (lines.length === 0) {
+    throw new Error("No valid ALEX:/SAM: lines found in model output.");
+  }
+
+  return lines;
 }
 
 export function getScriptStats(scriptLines: ScriptLine[]) {
