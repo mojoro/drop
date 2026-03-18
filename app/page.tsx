@@ -261,6 +261,7 @@ export default function Home() {
   const [result,     setResult]     = useState<Result | null>(null)
   const [error,      setError]      = useState<string | null>(null)
   const [alexVoice,  setAlexVoice]  = useState('alba')
+  const [scriptLength, setScriptLength] = useState<'short' | 'medium' | 'long'>('short')
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
   const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null)
@@ -457,7 +458,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -1029,6 +1030,27 @@ export default function Home() {
                : ttsOnline === false ? 'TTS OFFLINE'
                : 'CHECKING...'}
             </span>
+          </div>
+
+          {/* Length selector */}
+          <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2 }}>
+            {(['short', 'medium', 'long'] as const).map(len => (
+              <button
+                key={len}
+                onClick={() => setScriptLength(len)}
+                style={{
+                  padding: '4px 10px', borderRadius: 6, fontSize: 9,
+                  fontWeight: scriptLength === len ? 700 : 400,
+                  fontFamily: 'inherit', cursor: 'pointer',
+                  border: 'none', transition: 'all 0.15s',
+                  letterSpacing: '0.08em',
+                  background: scriptLength === len ? 'var(--accent)' : 'transparent',
+                  color: scriptLength === len ? '#000' : 'var(--muted)',
+                }}
+              >
+                {len === 'short' ? '~1m' : len === 'medium' ? '~3m' : '~7m'}
+              </button>
+            ))}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

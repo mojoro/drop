@@ -1,9 +1,11 @@
-import { buildSystemPrompt, buildUserPrompt } from "@/lib/prompt";
+import { buildSystemPrompt, buildUserPrompt, getLengthConfig, type ScriptLength } from "@/lib/prompt";
 
-export async function generateScriptClaude(content: string): Promise<string> {
+export async function generateScriptClaude(content: string, length: ScriptLength = "short"): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Missing ANTHROPIC_API_KEY in .env.local");
   }
+
+  const cfg = getLengthConfig(length);
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -14,9 +16,9 @@ export async function generateScriptClaude(content: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-20250514",
-      max_tokens: 1200,
+      max_tokens: cfg.maxTokens,
       system: buildSystemPrompt(),
-      messages: [{ role: "user", content: buildUserPrompt(content) }],
+      messages: [{ role: "user", content: buildUserPrompt(content, length) }],
     }),
   });
 

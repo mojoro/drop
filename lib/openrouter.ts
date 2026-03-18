@@ -3,6 +3,8 @@ import {
   buildUserPrompt,
   buildRepairPrompt,
   stripCodeFences,
+  getLengthConfig,
+  type ScriptLength,
 } from "@/lib/prompt";
 import { validatePodcastScript } from "@/lib/featherless";
 
@@ -18,6 +20,7 @@ async function callOpenRouter(
   messages: Array<{ role: "system" | "user"; content: string }>,
   apiKey: string,
   model?: string,
+  maxTokens?: number,
 ) {
   const response = await fetch(OPENROUTER_API_URL, {
     method: "POST",
@@ -28,7 +31,7 @@ async function callOpenRouter(
     body: JSON.stringify({
       model: model || DEFAULT_MODEL,
       temperature: 0.4,
-      max_tokens: 1200,
+      max_tokens: maxTokens || 1200,
       messages,
     }),
   });
@@ -57,6 +60,7 @@ export async function generateScriptOpenRouter(
   content: string,
   apiKey?: string,
   model?: string,
+  length: ScriptLength = "short",
 ): Promise<string> {
   const key = apiKey || process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("Missing OpenRouter API key");
@@ -66,8 +70,9 @@ export async function generateScriptOpenRouter(
     throw new Error("No content was provided to OpenRouter.");
   }
 
+  const cfg = getLengthConfig(length);
   const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent);
+  const userPrompt = buildUserPrompt(cleanedContent, length);
 
   try {
     const firstPass = await callOpenRouter(
@@ -77,22 +82,24 @@ export async function generateScriptOpenRouter(
       ],
       key,
       model,
+      cfg.maxTokens,
     );
 
-    if (validatePodcastScript(firstPass)) {
+    if (validatePodcastScript(firstPass, length)) {
       return firstPass;
     }
 
     const repaired = await callOpenRouter(
       [
         { role: "system", content: systemPrompt },
-        { role: "user", content: buildRepairPrompt(firstPass) },
+        { role: "user", content: buildRepairPrompt(firstPass, length) },
       ],
       key,
       model,
+      cfg.maxTokens,
     );
 
-    if (!validatePodcastScript(repaired)) {
+    if (!validatePodcastScript(repaired, length)) {
       throw new Error("OpenRouter returned invalid script format after retry.");
     }
 

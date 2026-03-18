@@ -8,6 +8,7 @@ import { parseScript, getScriptStats } from "@/lib/script";
 import { generateVoice, DEFAULT_ALEX_VOICE, DEFAULT_SAM_VOICE } from "@/lib/tts";
 import { stitchWav } from "@/lib/wavStitching";
 import { getProfile, type SettingsProfile } from "@/lib/storage";
+import type { ScriptLength } from "@/lib/prompt";
 
 export const runtime = "nodejs";
 
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
 
     const alexVoice = typeof body?.alexVoice === "string" ? body.alexVoice : DEFAULT_ALEX_VOICE;
     const samVoice  = typeof body?.samVoice  === "string" ? body.samVoice  : DEFAULT_SAM_VOICE;
+    const length: ScriptLength = ["short", "medium", "long"].includes(body?.length) ? body.length : "short";
 
     // Load active profile from server (keys never come from the client)
     let profile: SettingsProfile | null = null;
@@ -73,7 +75,7 @@ export async function POST(req: Request) {
       // 1. Ollama (local)
       if (ollamaModel) {
         try {
-          script = await generateScriptOllama(extracted);
+          script = await generateScriptOllama(extracted, length);
           scriptBackend = "ollama";
         } catch (e) {
           console.warn("Ollama failed, falling back:", e);
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
       // 2. OpenRouter
       if (script === undefined && orKey) {
         try {
-          script = await generateScriptOpenRouter(extracted, orKey, orModel);
+          script = await generateScriptOpenRouter(extracted, orKey, orModel, length);
           scriptBackend = "openrouter";
         } catch (e) {
           console.warn("OpenRouter failed, falling back:", e);
@@ -93,7 +95,7 @@ export async function POST(req: Request) {
       // 3. Featherless
       if (script === undefined && flKey) {
         try {
-          script = await generateScriptFeatherless(extracted);
+          script = await generateScriptFeatherless(extracted, length);
           scriptBackend = "featherless";
         } catch (e) {
           console.warn("Featherless failed, falling back:", e);
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
             "No LLM backend available. Configure Ollama, OpenRouter, Featherless, or Anthropic in settings."
           );
         }
-        script = await generateScriptClaude(extracted);
+        script = await generateScriptClaude(extracted, length);
         scriptBackend = "claude";
       }
 

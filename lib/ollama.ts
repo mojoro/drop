@@ -3,6 +3,7 @@ import {
   buildUserPrompt,
   buildRepairPrompt,
   stripCodeFences,
+  type ScriptLength,
 } from "@/lib/prompt";
 import { validatePodcastScript } from "@/lib/featherless";
 
@@ -20,13 +21,13 @@ async function callOllama(
   const baseUrl = process.env.OLLAMA_URL || DEFAULT_OLLAMA_URL;
   const model = process.env.OLLAMA_MODEL || DEFAULT_OLLAMA_MODEL;
 
+  // No max_tokens limit for local — let the model generate freely
   const response = await fetch(`${baseUrl}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
       temperature: 0.4,
-      max_tokens: 1200,
       messages,
     }),
     signal: AbortSignal.timeout(300_000),
@@ -52,7 +53,7 @@ async function callOllama(
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptOllama(content: string): Promise<string> {
+export async function generateScriptOllama(content: string, length: ScriptLength = "short"): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
@@ -60,7 +61,7 @@ export async function generateScriptOllama(content: string): Promise<string> {
   }
 
   const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent);
+  const userPrompt = buildUserPrompt(cleanedContent, length);
 
   try {
     const firstPass = await callOllama([
@@ -68,16 +69,16 @@ export async function generateScriptOllama(content: string): Promise<string> {
       { role: "user", content: userPrompt },
     ]);
 
-    if (validatePodcastScript(firstPass)) {
+    if (validatePodcastScript(firstPass, length)) {
       return firstPass;
     }
 
     const repaired = await callOllama([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass) },
+      { role: "user", content: buildRepairPrompt(firstPass, length) },
     ]);
 
-    if (!validatePodcastScript(repaired)) {
+    if (!validatePodcastScript(repaired, length)) {
       throw new Error("Ollama returned invalid script format after retry.");
     }
 

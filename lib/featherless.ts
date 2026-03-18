@@ -3,6 +3,8 @@ import {
   buildUserPrompt,
   buildRepairPrompt,
   stripCodeFences,
+  getLengthConfig,
+  type ScriptLength,
 } from "@/lib/prompt";
 
 const FEATHERLESS_API_URL = "https://api.featherless.ai/v1/chat/completions";
@@ -14,13 +16,14 @@ function errorMessage(error: unknown) {
   return "Unknown error";
 }
 
-export function validatePodcastScript(script: string) {
+export function validatePodcastScript(script: string, length: ScriptLength = "short") {
   const lines = script
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
 
-  if (lines.length < 12) return false;
+  const minLines = Math.max(4, getLengthConfig(length).lines[0] - 4);
+  if (lines.length < minLines) return false;
 
   const everyLineValid = lines.every((line) => /^(ALEX|SAM):\s.+/.test(line));
   if (!everyLineValid) return false;
@@ -31,7 +34,7 @@ export function validatePodcastScript(script: string) {
   return hasAlex && hasSam;
 }
 
-async function callFeatherless(messages: Array<{ role: "system" | "user"; content: string }>) {
+async function callFeatherless(messages: Array<{ role: "system" | "user"; content: string }>, maxTokens: number) {
   if (!process.env.FEATHERLESS_API_KEY) {
     throw new Error("Missing FEATHERLESS_API_KEY in .env.local");
   }
@@ -45,7 +48,7 @@ async function callFeatherless(messages: Array<{ role: "system" | "user"; conten
     body: JSON.stringify({
       model: DEFAULT_MODEL,
       temperature: 0.4,
-      max_tokens: 1200,
+      max_tokens: maxTokens,
       messages,
     }),
   });
@@ -70,32 +73,33 @@ async function callFeatherless(messages: Array<{ role: "system" | "user"; conten
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptFeatherless(content: string): Promise<string> {
+export async function generateScriptFeatherless(content: string, length: ScriptLength = "short"): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Featherless.");
   }
 
+  const cfg = getLengthConfig(length);
   const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent);
+  const userPrompt = buildUserPrompt(cleanedContent, length);
 
   try {
     const firstPass = await callFeatherless([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ]);
+    ], cfg.maxTokens);
 
-    if (validatePodcastScript(firstPass)) {
+    if (validatePodcastScript(firstPass, length)) {
       return firstPass;
     }
 
     const repaired = await callFeatherless([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass) },
-    ]);
+      { role: "user", content: buildRepairPrompt(firstPass, length) },
+    ], cfg.maxTokens);
 
-    if (!validatePodcastScript(repaired)) {
+    if (!validatePodcastScript(repaired, length)) {
       throw new Error("Featherless returned invalid script format after retry.");
     }
 
