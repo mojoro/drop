@@ -1246,32 +1246,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* Transcript */}
-          <div style={{ borderRadius: 16, padding: '18px 20px', background: 'var(--card)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <span style={{ color: 'var(--muted2)', fontSize: 13 }}>◈</span>
-              <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>TRANSCRIPT</span>
-              <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>{result.scriptLines.length} lines</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {result.scriptLines.map((line, i) => (
-                <div key={i} className="line-in" style={{ display: 'flex', gap: 12, animationDelay: `${i * 0.04}s` }}>
-                  <span style={{
-                    flexShrink: 0, width: 36, fontSize: 10, fontWeight: 700,
-                    letterSpacing: '0.1em', paddingTop: 2,
-                    color: line.speaker === 'ALEX' ? 'var(--alex)' : 'var(--sam)',
-                  }}>
-                    {line.speaker}
-                  </span>
-                  <p style={{ margin: 0, fontSize: 'clamp(12px, 3vw, 14px)', lineHeight: 1.65, color: 'var(--text)' }}>
-                    {line.text}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Save to library */}
+          {/* Save + download + actions (between audio and transcript) */}
           {result.audio && (
             <div style={{
               borderRadius: 12, padding: '12px 16px',
@@ -1304,6 +1279,7 @@ export default function Home() {
               >
                 {saving ? '...' : 'SAVE'}
               </button>
+              <ActionButton onClick={handleDownloadMp3} disabled={false} label="MP3 ↓" hint="download as MP3" />
             </div>
           )}
 
@@ -1311,7 +1287,6 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <ActionButton onClick={handleResynthesize} disabled={busy} label="RE-VOICE" hint="same script, current voices" />
             <ActionButton onClick={handleGenerate} disabled={busy} label="REGENERATE" hint="new script + audio" />
-            <ActionButton onClick={handleDownloadMp3} disabled={!result.audio} label="MP3 ↓" hint="download as MP3" />
             <button
               onClick={() => navigator.clipboard.writeText(result.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))}
               style={{
@@ -1326,6 +1301,31 @@ export default function Home() {
             >
               COPY ↗
             </button>
+          </div>
+
+          {/* Transcript */}
+          <div style={{ borderRadius: 16, padding: '18px 20px', background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+              <span style={{ color: 'var(--muted2)', fontSize: 13 }}>◈</span>
+              <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>TRANSCRIPT</span>
+              <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>{result.scriptLines.length} lines</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {result.scriptLines.map((line, i) => (
+                <div key={i} className="line-in" style={{ display: 'flex', gap: 12, animationDelay: `${i * 0.04}s` }}>
+                  <span style={{
+                    flexShrink: 0, width: 36, fontSize: 10, fontWeight: 700,
+                    letterSpacing: '0.1em', paddingTop: 2,
+                    color: line.speaker === 'ALEX' ? 'var(--alex)' : 'var(--sam)',
+                  }}>
+                    {line.speaker}
+                  </span>
+                  <p style={{ margin: 0, fontSize: 'clamp(12px, 3vw, 14px)', lineHeight: 1.65, color: 'var(--text)' }}>
+                    {line.text}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Footer */}
