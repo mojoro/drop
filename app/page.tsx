@@ -186,6 +186,33 @@ function VoiceRow({ label, color, voices, selected, onSelect }: {
 }
 
 // ── Settings input ──────────────────────────────────────────────────────────
+// ── Action button ───────────────────────────────────────────────────────────
+function ActionButton({ onClick, disabled, label, hint }: {
+  onClick: () => void; disabled: boolean; label: string; hint: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={hint}
+      style={{
+        padding: '6px 12px', borderRadius: 8, fontSize: 10,
+        fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'inherit',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        border: '1px solid var(--border2)',
+        background: 'transparent',
+        color: disabled ? 'var(--muted2)' : 'var(--muted)',
+        transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (!disabled) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--accent)' } }}
+      onMouseLeave={e => { e.currentTarget.style.color = disabled ? 'var(--muted2)' : 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ── Settings input ──────────────────────────────────────────────────────────
 function SettingsInput({ label, placeholder, value, onChange, secret, style }: {
   label: string; placeholder: string; value: string
   onChange: (v: string) => void; secret?: boolean; style?: React.CSSProperties
@@ -440,6 +467,26 @@ export default function Home() {
     } catch (e) {
       setStage('error')
       setError(e instanceof Error ? e.message : 'Something went wrong')
+    }
+  }
+
+  async function handleResynthesize() {
+    if (!result?.scriptLines || busy) return
+    setStage('audio')
+    setError(null)
+    try {
+      const res = await fetch('/api/synthesize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scriptLines: result.scriptLines, alexVoice, samVoice }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
+      setResult(prev => prev ? { ...prev, audio: data.audio } : prev)
+      setStage('done')
+    } catch (e) {
+      setStage('error')
+      setError(e instanceof Error ? e.message : 'Re-synthesis failed')
     }
   }
 
@@ -1084,19 +1131,31 @@ export default function Home() {
             </div>
           )}
 
-          {/* Footer row */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+          {/* Action buttons */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <ActionButton onClick={handleResynthesize} disabled={busy} label="RE-VOICE" hint="same script, current voices" />
+            <ActionButton onClick={handleGenerate} disabled={busy} label="REGENERATE" hint="new script + audio" />
+            <button
+              onClick={() => navigator.clipboard.writeText(result.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))}
+              style={{
+                padding: '6px 12px', borderRadius: 8, fontSize: 10,
+                fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'inherit',
+                cursor: 'pointer', border: '1px solid var(--border2)',
+                background: 'transparent', color: 'var(--muted)',
+                transition: 'all 0.15s', marginLeft: 'auto',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--text)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--muted)'; e.currentTarget.style.borderColor = 'var(--border2)' }}
+            >
+              COPY ↗
+            </button>
+          </div>
+
+          {/* Footer */}
+          <div style={{ padding: '0 4px' }}>
             <span style={{ color: 'var(--muted2)', fontSize: 10, letterSpacing: '0.1em' }}>
               LOCAL TTS · POCKET-TTS{result.scriptBackend ? ` · ${result.scriptBackend.toUpperCase()}` : ''}
             </span>
-            <button
-              onClick={() => navigator.clipboard.writeText(result.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))}
-              style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.1em', cursor: 'pointer', background: 'none', border: 'none', fontFamily: 'inherit', padding: '4px 0', transition: 'color 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'var(--text)')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted)')}
-            >
-              COPY TRANSCRIPT ↗
-            </button>
           </div>
         </div>
       )}
