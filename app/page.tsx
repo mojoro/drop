@@ -387,13 +387,23 @@ export default function Home() {
     refreshLibrary()
   }
 
-  function handleLoadPodcast(p: SavedPodcast) {
+  async function handleLoadPodcast(p: SavedPodcast) {
     setInput(p.input || p.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))
-    setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
     if (p.alexVoice) setAlexVoice(p.alexVoice)
     if (p.samVoice) setSamVoice(p.samVoice)
-    setStage('done')
     setShowLibrary(false)
+    setStage('audio')
+    try {
+      const res = await fetch(`/api/library/${p.id}/audio`)
+      if (!res.ok) throw new Error('Audio not found')
+      const buf = await res.arrayBuffer()
+      const audio = btoa(String.fromCharCode(...new Uint8Array(buf)))
+      setResult({ scriptLines: p.scriptLines, audio, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+      setStage('done')
+    } catch {
+      setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+      setStage('done')
+    }
   }
 
   function inputLooksLikeTranscript(): boolean {
