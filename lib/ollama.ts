@@ -29,7 +29,7 @@ async function callOllama(
       max_tokens: 1200,
       messages,
     }),
-    signal: AbortSignal.timeout(60_000),
+    signal: AbortSignal.timeout(300_000),
   });
 
   const data = await response.json().catch(() => null);
