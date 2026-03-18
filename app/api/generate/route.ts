@@ -80,51 +80,67 @@ export async function POST(req: Request) {
     setEnv("ANTHROPIC_API_KEY", aKey);
     setEnv("NEEDLE_API_KEY", needleKey);
 
+    const llmChoice = typeof body?.llmBackend === "string" ? body.llmBackend : "auto";
+
     try {
       const extracted = await extractContent(input);
 
-      // ── Script generation: Ollama → OpenRouter → Featherless → Claude ─────
+      // ── Script generation ─────────────────────────────────────────────────
       let script: string | undefined;
       let scriptBackend: ScriptBackend = "claude";
 
-      if (ollamaModel) {
-        try {
-          script = await generateScriptOllama(extracted, length, language);
-          scriptBackend = "ollama";
-        } catch (e) {
-          console.warn("Ollama failed, falling back:", e);
-        }
+      // Helper to try a specific backend
+      async function tryOllama() {
+        if (!ollamaModel) throw new Error("Ollama model not configured");
+        script = await generateScriptOllama(extracted, length, language);
+        scriptBackend = "ollama";
       }
-
-      if (script === undefined && orKey) {
-        try {
-          script = await generateScriptOpenRouter(extracted, orKey, orModel, length, language);
-          scriptBackend = "openrouter";
-        } catch (e) {
-          console.warn("OpenRouter failed, falling back:", e);
-        }
+      async function tryOpenRouter() {
+        if (!orKey) throw new Error("OpenRouter API key not configured");
+        script = await generateScriptOpenRouter(extracted, orKey, orModel, length, language);
+        scriptBackend = "openrouter";
       }
-
-      if (script === undefined && flKey) {
-        try {
-          script = await generateScriptFeatherless(extracted, length, language);
-          scriptBackend = "featherless";
-        } catch (e) {
-          console.warn("Featherless failed, falling back:", e);
-        }
+      async function tryFeatherless() {
+        if (!flKey) throw new Error("Featherless API key not configured");
+        script = await generateScriptFeatherless(extracted, length, language);
+        scriptBackend = "featherless";
       }
-
-      if (script === undefined) {
-        if (!aKey) {
-          throw new Error(
-            "No LLM backend available. Configure Ollama, OpenRouter, Featherless, or Anthropic in settings."
-          );
-        }
+      async function tryClaude() {
+        if (!aKey) throw new Error("Anthropic API key not configured");
         script = await generateScriptClaude(extracted, length, language);
         scriptBackend = "claude";
       }
 
-      const scriptLines = parseScript(script);
+      if (llmChoice !== "auto") {
+        // User explicitly chose a backend — use it directly, no fallback
+        const backendMap: Record<string, () => Promise<void>> = { ollama: tryOllama, openrouter: tryOpenRouter, featherless: tryFeatherless, claude: tryClaude };
+        const fn = backendMap[llmChoice];
+        if (fn) await fn();
+        else throw new Error(`Unknown LLM backend: ${llmChoice}`);
+      } else {
+        // Auto: cascade Ollama → OpenRouter → Featherless → Claude
+        const cascade = [
+          { fn: tryOllama, available: !!ollamaModel, name: "Ollama" },
+          { fn: tryOpenRouter, available: !!orKey, name: "OpenRouter" },
+          { fn: tryFeatherless, available: !!flKey, name: "Featherless" },
+          { fn: tryClaude, available: !!aKey, name: "Claude" },
+        ];
+
+        for (const backend of cascade) {
+          if (!backend.available || script !== undefined) continue;
+          try { await backend.fn(); } catch (e) {
+            console.warn(`${backend.name} failed, falling back:`, e);
+          }
+        }
+
+        if (script === undefined) {
+          throw new Error(
+            "No LLM backend available. Configure Ollama, OpenRouter, Featherless, or Anthropic in settings."
+          );
+        }
+      }
+
+      const scriptLines = parseScript(script!);
       const stats = getScriptStats(scriptLines);
 
       // ── TTS: generate per line, stitch into one WAV ──────────────────────

@@ -248,6 +248,7 @@ export default function Home() {
   const [alexVoice,  setAlexVoice]  = useState('alba')
   const [scriptLength, setScriptLength] = useState<'short' | 'medium' | 'long'>('short')
   const [language, setLanguage] = useState('English')
+  const [llmBackend, setLlmBackend] = useState<'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'>('auto')
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
   const [ttsBackend, setTtsBackend] = useState<'local' | 'elevenlabs' | 'openai'>('local')
@@ -535,7 +536,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength, language, ttsBackend }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength, language, ttsBackend, llmBackend }),
         signal: ac.signal,
       })
       const data = await res.json()
@@ -1153,6 +1154,25 @@ export default function Home() {
               </button>
             ))}
           </div>
+
+          {/* LLM selector */}
+          <select
+            value={llmBackend}
+            onChange={e => setLlmBackend(e.target.value as typeof llmBackend)}
+            style={{
+              padding: '4px 24px 4px 8px', borderRadius: 8, fontSize: 9,
+              fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.08em',
+              background: 'var(--card)', border: 'none',
+              color: llmBackend === 'auto' ? 'var(--muted)' : 'var(--text)',
+              cursor: 'pointer', outline: 'none',
+            }}
+          >
+            <option value="auto">AUTO</option>
+            <option value="ollama">OLLAMA</option>
+            <option value="openrouter">OPENROUTER</option>
+            <option value="featherless">FEATHERLESS</option>
+            <option value="claude">CLAUDE</option>
+          </select>
 
           {/* Language selector */}
           <select
