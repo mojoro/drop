@@ -5,7 +5,7 @@ import { generateScriptFeatherless } from "@/lib/featherless";
 import { generateScriptClaude } from "@/lib/claude";
 import { generateScriptOllama } from "@/lib/ollama";
 import { parseScript, getScriptStats } from "@/lib/script";
-import { generateVoice, DEFAULT_ALEX_VOICE, DEFAULT_SAM_VOICE } from "@/lib/tts";
+import { synthesizeLine, getDefaultVoices, type TtsBackend, type TtsConfig } from "@/lib/tts-router";
 import { stitchWav } from "@/lib/wavStitching";
 import { getProfile, type SettingsProfile } from "@/lib/storage";
 import type { ScriptLength, ScriptLanguage } from "@/lib/prompt";
@@ -33,8 +33,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing input" }, { status: 400 });
     }
 
-    const alexVoice = typeof body?.alexVoice === "string" ? body.alexVoice : DEFAULT_ALEX_VOICE;
-    const samVoice  = typeof body?.samVoice  === "string" ? body.samVoice  : DEFAULT_SAM_VOICE;
     const length: ScriptLength = ["short", "medium", "long"].includes(body?.length) ? body.length : "short";
     const language: ScriptLanguage | undefined = typeof body?.language === "string" && body.language ? body.language : undefined;
 
@@ -44,6 +42,22 @@ export async function POST(req: Request) {
       profile = await getProfile(body.profile);
     }
 
+    // Resolve TTS backend and config
+    const ttsBackend: TtsBackend = (["local", "elevenlabs", "openai"].includes(body?.ttsBackend) ? body.ttsBackend
+      : profile?.ttsBackend && ["local", "elevenlabs", "openai"].includes(profile.ttsBackend) ? profile.ttsBackend
+      : "local") as TtsBackend;
+
+    const ttsConfig: TtsConfig = {
+      backend: ttsBackend,
+      elevenlabsKey: cfg(profile?.elevenlabsKey, "ELEVENLABS_API_KEY"),
+      openaiKey: cfg(profile?.openaiKey, "OPENAI_API_KEY"),
+    };
+
+    const defaults = getDefaultVoices(ttsBackend);
+    const alexVoice = typeof body?.alexVoice === "string" ? body.alexVoice : defaults.alex;
+    const samVoice  = typeof body?.samVoice  === "string" ? body.samVoice  : defaults.sam;
+
+    // LLM config
     const ollamaModel = cfg(profile?.ollamaModel, "OLLAMA_MODEL");
     const ollamaUrl   = cfg(profile?.ollamaUrl, "OLLAMA_URL", "http://localhost:11434");
     const orKey       = cfg(profile?.openrouterKey, "OPENROUTER_API_KEY");
@@ -73,7 +87,6 @@ export async function POST(req: Request) {
       let script: string | undefined;
       let scriptBackend: ScriptBackend = "claude";
 
-      // 1. Ollama (local)
       if (ollamaModel) {
         try {
           script = await generateScriptOllama(extracted, length, language);
@@ -83,7 +96,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // 2. OpenRouter
       if (script === undefined && orKey) {
         try {
           script = await generateScriptOpenRouter(extracted, orKey, orModel, length, language);
@@ -93,7 +105,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // 3. Featherless
       if (script === undefined && flKey) {
         try {
           script = await generateScriptFeatherless(extracted, length, language);
@@ -103,7 +114,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // 4. Claude (last resort)
       if (script === undefined) {
         if (!aKey) {
           throw new Error(
@@ -121,7 +131,7 @@ export async function POST(req: Request) {
       const buffers: ArrayBuffer[] = [];
       for (const line of scriptLines) {
         const voice = line.speaker === "ALEX" ? alexVoice : samVoice;
-        const buf = await generateVoice(line.text, voice);
+        const buf = await synthesizeLine(line.text, voice, ttsConfig);
         buffers.push(buf);
       }
 
@@ -132,6 +142,7 @@ export async function POST(req: Request) {
         scriptLines,
         audio,
         scriptBackend,
+        ttsBackend,
         debug: {
           extractedPreview: extracted.slice(0, 2500),
           rawScript: script,
@@ -139,7 +150,6 @@ export async function POST(req: Request) {
         },
       });
     } finally {
-      // Restore original env vars
       for (const [key, val] of Object.entries(envOverrides)) {
         if (val === undefined) delete process.env[key];
         else process.env[key] = val;

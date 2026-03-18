@@ -152,9 +152,12 @@ export type SettingsProfile = {
   needleKey: string;
   ollamaUrl: string;
   ollamaModel: string;
+  elevenlabsKey: string;
+  openaiKey: string;
+  ttsBackend: string;
 };
 
-const KEY_FIELDS = ["openrouterKey", "featherlessKey", "anthropicKey", "needleKey"] as const;
+const KEY_FIELDS = ["openrouterKey", "featherlessKey", "anthropicKey", "needleKey", "elevenlabsKey", "openaiKey"] as const;
 
 function maskKey(key: string): string {
   if (!key || key.length < 8) return key ? "••••" : "";

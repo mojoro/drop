@@ -12,5 +12,7 @@ export async function GET() {
     featherless: !!process.env.FEATHERLESS_API_KEY,
     anthropic: !!process.env.ANTHROPIC_API_KEY,
     needle: !!process.env.NEEDLE_API_KEY,
+    elevenlabs: !!process.env.ELEVENLABS_API_KEY,
+    openaiTts: !!process.env.OPENAI_API_KEY,
   });
 }
