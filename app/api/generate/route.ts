@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { extractContent } from "@/lib/needle";
+import { extractContent } from "@/lib/scrape";
 import { generateScriptFeatherless } from "@/lib/featherless";
 import { generateScriptClaude } from "@/lib/claude";
 import { generateScriptOllama } from "@/lib/ollama";
