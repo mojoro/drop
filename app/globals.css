@@ -104,6 +104,7 @@ select {
 audio {
   filter: invert(1) hue-rotate(180deg);
   border-radius: 4px;
+  width: 100%;
 }
 
 /* Config toggle hover */
@@ -124,4 +125,36 @@ audio {
 /* Mobile: stack voice selectors */
 @media (max-width: 480px) {
   .voice-panel { flex-direction: column !important; }
+}
+
+/* Mobile: wrap toolbar controls */
+@media (max-width: 560px) {
+  .bottom-toolbar {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+  .bottom-toolbar > * {
+    flex-shrink: 0;
+  }
+  .toolbar-controls {
+    width: 100% !important;
+    justify-content: flex-end !important;
+  }
+}
+
+/* Skeleton pulse animation */
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.15; }
+}
+
+.skeleton {
+  background: var(--border);
+  border-radius: 6px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+/* Error dismiss */
+.error-dismiss:hover {
+  opacity: 1 !important;
 }

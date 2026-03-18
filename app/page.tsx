@@ -1074,7 +1074,7 @@ export default function Home() {
         )}
 
         {/* Bottom toolbar */}
-        <div style={{
+        <div className="bottom-toolbar" style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '10px 16px',
           borderTop: '1px solid var(--border)',
@@ -1148,7 +1148,7 @@ export default function Home() {
             <option value="Russian">RU</option>
           </select>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div className="toolbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="cmd-hint" style={{
               display: 'none', alignItems: 'center', gap: 1,
               color: 'var(--muted)', lineHeight: 1,
@@ -1245,17 +1245,59 @@ export default function Home() {
             background: 'rgba(255,92,58,0.08)',
             border: '1px solid rgba(255,92,58,0.2)',
             color: '#ff8566', fontSize: 12,
+            display: 'flex', alignItems: 'flex-start', gap: 10,
           }}
         >
-          ✗ {error}
+          <span style={{ flex: 1 }}>✗ {error}</span>
+          <button
+            className="error-dismiss"
+            onClick={() => setError(null)}
+            style={{
+              background: 'none', border: 'none', color: '#ff8566',
+              cursor: 'pointer', fontSize: 14, fontFamily: 'inherit',
+              opacity: 0.5, padding: 0, lineHeight: 1, flexShrink: 0,
+            }}
+          >
+            ✕
+          </button>
         </div>
       )}
 
-      {/* ── Status label ── */}
-      {busy && stageLabel && (
-        <p className="animate-slide-up" style={{ marginTop: 16, color: 'var(--muted)', fontSize: 11, letterSpacing: '0.14em', textAlign: 'center' }}>
-          {stageLabel}
-        </p>
+      {/* ── TTS offline hint ── */}
+      {ttsOnline === false && stage === 'idle' && !result && (
+        <div
+          className="animate-slide-up"
+          style={{
+            width: '100%', maxWidth: 640, marginTop: 12,
+            padding: '12px 16px', borderRadius: 12,
+            background: 'rgba(255,92,58,0.05)',
+            border: '1px solid var(--border)',
+            color: 'var(--muted)', fontSize: 11, lineHeight: 1.6,
+          }}
+        >
+          TTS sidecar not detected. Start it with:
+          <code style={{ display: 'block', marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'var(--card2)', color: 'var(--text)', fontSize: 10 }}>
+            cd tts-server && uv run uvicorn main:app
+          </code>
+        </div>
+      )}
+
+      {/* ── Loading skeleton ── */}
+      {busy && (
+        <div className="animate-slide-up" style={{ width: '100%', maxWidth: 640, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div style={{ borderRadius: 16, padding: '18px 20px', background: 'var(--card)', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+              <span style={{ color: 'var(--accent)', fontSize: 13 }}>◉</span>
+              <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>{stageLabel}</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div className="skeleton" style={{ height: 14, width: '90%' }} />
+              <div className="skeleton" style={{ height: 14, width: '75%' }} />
+              <div className="skeleton" style={{ height: 14, width: '85%' }} />
+              <div className="skeleton" style={{ height: 14, width: '60%' }} />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── Result ── */}
