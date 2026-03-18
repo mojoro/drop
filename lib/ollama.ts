@@ -5,7 +5,7 @@ import {
   stripCodeFences,
   type ScriptLength,
 } from "@/lib/prompt";
-import { validatePodcastScript } from "@/lib/featherless";
+import { validatePodcastScript, extractValidLines } from "@/lib/featherless";
 
 const DEFAULT_OLLAMA_URL = "http://localhost:11434";
 const DEFAULT_OLLAMA_MODEL = "qwen2.5:7b";
@@ -73,16 +73,32 @@ export async function generateScriptOllama(content: string, length: ScriptLength
       return firstPass;
     }
 
+    // First pass didn't fully validate — try extracting valid lines directly
+    const extracted = extractValidLines(firstPass);
+    if (extracted.length >= 4) {
+      console.warn(`Ollama: first pass had ${extracted.length} valid lines out of mixed output, using them`);
+      return extracted.join("\n");
+    }
+
+    console.warn("Ollama: first pass invalid, attempting repair. Raw output:", firstPass.slice(0, 500));
+
     const repaired = await callOllama([
       { role: "system", content: systemPrompt },
       { role: "user", content: buildRepairPrompt(firstPass, length) },
     ]);
 
-    if (!validatePodcastScript(repaired, length)) {
-      throw new Error("Ollama returned invalid script format after retry.");
+    if (validatePodcastScript(repaired, length)) {
+      return repaired;
     }
 
-    return repaired;
+    // Last resort: extract whatever valid lines we can
+    const repairedLines = extractValidLines(repaired);
+    if (repairedLines.length >= 4) {
+      console.warn(`Ollama: repair had ${repairedLines.length} valid lines, using them`);
+      return repairedLines.join("\n");
+    }
+
+    throw new Error("Ollama returned invalid script format after retry.");
   } catch (error) {
     throw new Error(`Ollama script generation failed: ${errorMessage(error)}`);
   }
