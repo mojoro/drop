@@ -43,3 +43,6 @@ next-env.d.ts
 .env
 conversation.mp3
 test-output.mp3
+
+# user data
+/data
