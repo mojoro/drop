@@ -490,6 +490,49 @@ export default function Home() {
     }
   }
 
+  async function handleDownloadMp3() {
+    if (!result?.audio) return
+    const lamejs = await import('lamejs')
+    // Decode WAV base64 → PCM samples
+    const wavBytes = Uint8Array.from(atob(result.audio), c => c.charCodeAt(0))
+    const view = new DataView(wavBytes.buffer)
+    const numChannels = view.getUint16(22, true)
+    const sampleRate = view.getUint32(24, true)
+    const bitsPerSample = view.getUint16(34, true)
+    // Find data chunk
+    let dataOffset = 12
+    while (dataOffset < wavBytes.length - 8) {
+      const id = String.fromCharCode(...wavBytes.slice(dataOffset, dataOffset + 4))
+      const size = view.getUint32(dataOffset + 4, true)
+      if (id === 'data') { dataOffset += 8; break }
+      dataOffset += 8 + size
+    }
+    const bytesPerSample = bitsPerSample / 8
+    const numSamples = Math.floor((wavBytes.length - dataOffset) / (bytesPerSample * numChannels))
+    const samples = new Int16Array(numSamples)
+    for (let i = 0; i < numSamples; i++) {
+      samples[i] = view.getInt16(dataOffset + i * bytesPerSample * numChannels, true)
+    }
+    // Encode MP3
+    const encoder = new lamejs.Mp3Encoder(1, sampleRate, 128)
+    const mp3Chunks: Uint8Array[] = []
+    const blockSize = 1152
+    for (let i = 0; i < samples.length; i += blockSize) {
+      const chunk = samples.subarray(i, i + blockSize)
+      const buf = encoder.encodeBuffer(chunk)
+      if (buf.length > 0) mp3Chunks.push(new Uint8Array(buf))
+    }
+    const end = encoder.flush()
+    if (end.length > 0) mp3Chunks.push(new Uint8Array(end))
+    const blob = new Blob(mp3Chunks as BlobPart[], { type: 'audio/mp3' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `drop-${new Date().toISOString().slice(0, 10)}.mp3`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   const stageLabel =
     stage === 'extracting' ? '◎ SCRAPING CONTENT...' :
     stage === 'writing'    ? '◈ GENERATING SCRIPT...' :
@@ -1135,6 +1178,7 @@ export default function Home() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <ActionButton onClick={handleResynthesize} disabled={busy} label="RE-VOICE" hint="same script, current voices" />
             <ActionButton onClick={handleGenerate} disabled={busy} label="REGENERATE" hint="new script + audio" />
+            <ActionButton onClick={handleDownloadMp3} disabled={!result.audio} label="MP3 ↓" hint="download as MP3" />
             <button
               onClick={() => navigator.clipboard.writeText(result.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))}
               style={{
