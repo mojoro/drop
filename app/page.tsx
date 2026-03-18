@@ -6,7 +6,52 @@ import { useState, useEffect, useRef } from 'react'
 type Voice = { id: string; name: string; type: 'builtin' | 'custom' }
 type Stage = 'idle' | 'extracting' | 'writing' | 'audio' | 'done' | 'error'
 type ScriptLine = { speaker: 'ALEX' | 'SAM'; text: string }
-type Result = { scriptLines: ScriptLine[]; audio: string | null; scriptBackend?: 'ollama' | 'featherless' | 'claude' }
+type Result = { scriptLines: ScriptLine[]; audio: string | null; scriptBackend?: 'ollama' | 'openrouter' | 'featherless' | 'claude' }
+
+type Settings = {
+  openrouterKey: string
+  openrouterModel: string
+  featherlessKey: string
+  anthropicKey: string
+  needleKey: string
+  ollamaUrl: string
+  ollamaModel: string
+}
+
+type ServerStatus = {
+  ollama: boolean
+  openrouter: boolean
+  featherless: boolean
+  anthropic: boolean
+  needle: boolean
+}
+
+const DEFAULT_SETTINGS: Settings = {
+  openrouterKey: '',
+  openrouterModel: '',
+  featherlessKey: '',
+  anthropicKey: '',
+  needleKey: '',
+  ollamaUrl: '',
+  ollamaModel: '',
+}
+
+const STORAGE_KEY = 'drop-settings'
+
+function loadSettings(): Settings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return DEFAULT_SETTINGS
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
+  } catch {
+    return DEFAULT_SETTINGS
+  }
+}
+
+function saveSettings(s: Settings) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+}
 
 // ── Fallback voices (used when sidecar is offline) ───────────────────────────
 const FALLBACK_VOICES: Voice[] = [
@@ -148,6 +193,48 @@ function VoiceRow({ label, color, voices, selected, onSelect }: {
   )
 }
 
+// ── Settings input ──────────────────────────────────────────────────────────
+function SettingsInput({ label, placeholder, value, onChange, secret, style }: {
+  label: string; placeholder: string; value: string
+  onChange: (v: string) => void; secret?: boolean; style?: React.CSSProperties
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div style={style}>
+      <label style={{ display: 'block', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>
+        {label}
+      </label>
+      <div style={{ position: 'relative' }}>
+        <input
+          type={secret && !show ? 'password' : 'text'}
+          placeholder={placeholder}
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          style={{
+            width: '100%', padding: '7px 10px',
+            paddingRight: secret ? 32 : 10,
+            background: 'var(--card2)', border: '1px solid var(--border2)',
+            borderRadius: 8, color: 'var(--text)', fontSize: 11,
+            fontFamily: 'inherit', outline: 'none',
+          }}
+        />
+        {secret && value && (
+          <button
+            onClick={() => setShow(s => !s)}
+            style={{
+              position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+              background: 'none', border: 'none', cursor: 'pointer',
+              fontSize: 10, color: 'var(--muted)', fontFamily: 'inherit',
+            }}
+          >
+            {show ? '◉' : '○'}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main page ────────────────────────────────────────────────────────────────
 export default function Home() {
   const [input,      setInput]      = useState('')
@@ -165,6 +252,9 @@ export default function Home() {
   const [cloneMsg,     setCloneMsg]     = useState<{ ok: boolean; text: string } | null>(null)
   const [recording,    setRecording]    = useState(false)
   const [recordSecs,   setRecordSecs]   = useState(0)
+  const [settings,     setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
+  const [showSettings, setShowSettings] = useState(false)
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
   const mediaRecRef    = useRef<MediaRecorder | null>(null)
   const chunksRef      = useRef<Blob[]>([])
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -234,7 +324,19 @@ export default function Home() {
       .catch(() => setTtsOnline(false))
   }
 
-  useEffect(() => { refreshVoices() }, [])
+  useEffect(() => {
+    refreshVoices()
+    setSettings(loadSettings())
+    fetch('/api/settings').then(r => r.json()).then(setServerStatus).catch(() => {})
+  }, [])
+
+  function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
+    setSettings(prev => {
+      const next = { ...prev, [key]: value }
+      saveSettings(next)
+      return next
+    })
+  }
 
   async function handleClone() {
     if (!cloneFile || !cloneName.trim() || cloning) return
@@ -268,7 +370,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, settings }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -307,6 +409,137 @@ export default function Home() {
           PASTE A URL OR TOPIC · LOCAL PODCAST GENERATION
         </p>
       </div>
+
+      {/* ── Settings toggle ── */}
+      <button
+        onClick={() => setShowSettings(s => !s)}
+        style={{
+          marginBottom: 16, padding: '5px 14px', borderRadius: 8,
+          fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
+          color: showSettings ? 'var(--text)' : 'var(--muted)',
+          background: showSettings ? 'var(--card)' : 'transparent',
+          border: `1px solid ${showSettings ? 'var(--border2)' : 'transparent'}`,
+          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+        }}
+      >
+        {showSettings ? '▾ SETTINGS' : '▸ SETTINGS'}
+      </button>
+
+      {/* ── Settings panel ── */}
+      {showSettings && (
+        <div
+          className="animate-slide-up"
+          style={{
+            width: '100%', maxWidth: 640, marginBottom: 20,
+            borderRadius: 16, padding: '18px 20px',
+            background: 'var(--card)', border: '1px solid var(--border)',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Server status */}
+            {serverStatus && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+                {(['ollama', 'openrouter', 'featherless', 'anthropic', 'needle'] as const).map(k => {
+                  const hasEnv = serverStatus[k]
+                  const hasClient = k === 'ollama' ? !!settings.ollamaModel
+                    : k === 'openrouter' ? !!settings.openrouterKey
+                    : k === 'featherless' ? !!settings.featherlessKey
+                    : k === 'anthropic' ? !!settings.anthropicKey
+                    : !!settings.needleKey
+                  const active = hasEnv || hasClient
+                  return (
+                    <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <div style={{
+                        width: 5, height: 5, borderRadius: '50%',
+                        background: active ? 'var(--green)' : 'var(--muted2)',
+                        boxShadow: active ? '0 0 6px rgba(74,222,128,0.4)' : 'none',
+                      }} />
+                      <span style={{ fontSize: 9, letterSpacing: '0.1em', color: active ? 'var(--text)' : 'var(--muted2)' }}>
+                        {k.toUpperCase()}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            <p style={{ margin: 0, fontSize: 10, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Keys are stored in your browser only. Server env vars are used as defaults.
+            </p>
+
+            {/* LLM section */}
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 4 }}>
+              LLM BACKENDS
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <SettingsInput
+                label="OLLAMA MODEL"
+                placeholder="e.g. qwen2.5:7b"
+                value={settings.ollamaModel}
+                onChange={v => updateSetting('ollamaModel', v)}
+                style={{ flex: 1, minWidth: 140 }}
+              />
+              <SettingsInput
+                label="OLLAMA URL"
+                placeholder="http://localhost:11434"
+                value={settings.ollamaUrl}
+                onChange={v => updateSetting('ollamaUrl', v)}
+                style={{ flex: 1, minWidth: 180 }}
+              />
+            </div>
+
+            <SettingsInput
+              label="OPENROUTER API KEY"
+              placeholder="sk-or-..."
+              value={settings.openrouterKey}
+              onChange={v => updateSetting('openrouterKey', v)}
+              secret
+            />
+
+            <SettingsInput
+              label="OPENROUTER MODEL"
+              placeholder="qwen/qwen3-8b (default)"
+              value={settings.openrouterModel}
+              onChange={v => updateSetting('openrouterModel', v)}
+            />
+
+            <SettingsInput
+              label="FEATHERLESS API KEY"
+              placeholder="fl-..."
+              value={settings.featherlessKey}
+              onChange={v => updateSetting('featherlessKey', v)}
+              secret
+            />
+
+            <SettingsInput
+              label="ANTHROPIC API KEY"
+              placeholder="sk-ant-..."
+              value={settings.anthropicKey}
+              onChange={v => updateSetting('anthropicKey', v)}
+              secret
+            />
+
+            {/* Scraping section */}
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 8 }}>
+              SCRAPING
+            </div>
+
+            <SettingsInput
+              label="NEEDLE API KEY"
+              placeholder="optional — built-in scraper used by default"
+              value={settings.needleKey}
+              onChange={v => updateSetting('needleKey', v)}
+              secret
+            />
+
+            {/* Fallback order */}
+            <p style={{ margin: 0, fontSize: 9, color: 'var(--muted2)', lineHeight: 1.5, marginTop: 4 }}>
+              LLM priority: Ollama → OpenRouter → Featherless → Claude
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── Pipeline visualization ── */}
       {stage !== 'idle' && (

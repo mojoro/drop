@@ -23,13 +23,15 @@ npx tsx tests/featherless.test.ts
 
 ## Environment Variables
 
-Create `.env.local` in the root:
+Create `.env.local` in the root (all optional — users can also set keys via the Settings UI):
 
 ```
-ELEVENLABS_API_KEY=
-NEEDLE_API_KEY=
-FEATHERLESS_API_KEY=
+OPENROUTER_API_KEY=    # Recommended cloud LLM
+OLLAMA_MODEL=          # e.g. qwen2.5:7b — enables local LLM
+OLLAMA_URL=            # defaults to http://localhost:11434
+FEATHERLESS_API_KEY=   # Optional LLM backend
 ANTHROPIC_API_KEY=     # Claude fallback for script generation
+NEEDLE_API_KEY=        # Optional — built-in scraper used by default
 ```
 
 ## Architecture
@@ -38,14 +40,19 @@ The app is a **3-stage pipeline** triggered by `POST /api/generate`:
 
 ```
 User input (URL or topic)
-  → lib/needle.ts       Stage 1: Extract content via Needle SDK
-                        Fallback: direct HTML fetch if Needle fails
-  → lib/featherless.ts  Stage 2: Generate ALEX/SAM dialogue script
-                        Fallback: lib/claude.ts (Claude Sonnet)
-  → lib/elevenlabs.ts   Stage 3: Text-to-speech, one call per script line
-  → lib/audioStitching.ts  Concatenate MP3 buffers into single audio file
+  → lib/scrape.ts       Stage 1: Built-in Readability extraction
+                        Uses Needle if NEEDLE_API_KEY is set
+  → LLM (priority order) Stage 2: Generate ALEX/SAM dialogue script
+    1. lib/ollama.ts       Local (Ollama)
+    2. lib/openrouter.ts   Cloud (OpenRouter)
+    3. lib/featherless.ts  Cloud (Featherless)
+    4. lib/claude.ts       Cloud (Anthropic Claude)
+  → lib/tts.ts          Stage 3: Text-to-speech via local sidecar
+  → lib/wavStitching.ts    Concatenate WAV buffers into single audio file
   → Returns { scriptLines, audio (base64) }
 ```
+
+Users can configure API keys either via `.env.local` or the in-app Settings panel (stored in browser localStorage, sent with each request).
 
 **Script format** — both generation and parsing depend on this exact format:
 ```
