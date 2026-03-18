@@ -250,6 +250,7 @@ export default function Home() {
   const [language, setLanguage] = useState('English')
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
+  const [ttsBackend, setTtsBackend] = useState<'local' | 'elevenlabs' | 'openai'>('local')
   const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null)
   const [showClone,  setShowClone]  = useState(false)
   const [cloneName,  setCloneName]  = useState('')
@@ -270,6 +271,7 @@ export default function Home() {
   const [profileForm,  setProfileForm]  = useState({
     openrouterKey: '', openrouterModel: '', featherlessKey: '',
     anthropicKey: '', needleKey: '', ollamaUrl: '', ollamaModel: '',
+    elevenlabsKey: '', openaiKey: '', ttsBackend: 'local',
   })
   const mediaRecRef    = useRef<MediaRecorder | null>(null)
   const chunksRef      = useRef<Blob[]>([])
@@ -277,6 +279,7 @@ export default function Home() {
   const abortRef       = useRef<AbortController | null>(null)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
+  const ttsReady = ttsBackend !== 'local' || ttsOnline !== false
 
   // ── WAV encoder (client-side, mono 16-bit PCM) ────────────────────────────
   function encodeWav(buf: AudioBuffer): File {
@@ -327,18 +330,20 @@ export default function Home() {
     mediaRecRef.current?.stop()
   }
 
-  function refreshVoices() {
-    return fetch('/api/voices')
+  function refreshVoices(backend?: string) {
+    const b = backend ?? ttsBackend
+    const params = new URLSearchParams({ backend: b, profile: activeProfile })
+    return fetch(`/api/voices?${params}`)
       .then(res => res.ok ? res.json() : Promise.reject(res))
-      .then((data: { builtin: string[]; custom: string[] }) => {
-        const all: Voice[] = [
-          ...data.builtin.map(name => ({ id: name, name, type: 'builtin' as const })),
-          ...data.custom.map(name => ({ id: name, name, type: 'custom' as const })),
-        ]
-        if (all.length > 0) setVoices(all)
+      .then((data: { backend: string; voices: Voice[] }) => {
+        if (data.voices.length > 0) setVoices(data.voices)
+        else setVoices(FALLBACK_VOICES)
         setTtsOnline(true)
       })
-      .catch(() => setTtsOnline(false))
+      .catch(() => {
+        if (b === 'local') setTtsOnline(false)
+        else setTtsOnline(true) // cloud backends don't need sidecar
+      })
   }
 
   const refreshLibrary = useCallback(() => {
@@ -356,6 +361,11 @@ export default function Home() {
   function selectProfile(name: string) {
     setActiveProfile(name)
     saveActiveProfile(name)
+  }
+
+  function switchTtsBackend(backend: 'local' | 'elevenlabs' | 'openai') {
+    setTtsBackend(backend)
+    refreshVoices(backend)
   }
 
   async function handleSavePodcast() {
@@ -441,7 +451,7 @@ export default function Home() {
       const res = await fetch('/api/synthesize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scriptLines, alexVoice, samVoice }),
+        body: JSON.stringify({ scriptLines, alexVoice, samVoice, ttsBackend, profile: activeProfile }),
         signal: ac.signal,
       })
       const data = await res.json()
@@ -468,6 +478,7 @@ export default function Home() {
     setProfileForm({
       openrouterKey: '', openrouterModel: '', featherlessKey: '',
       anthropicKey: '', needleKey: '', ollamaUrl: '', ollamaModel: '',
+      elevenlabsKey: '', openaiKey: '', ttsBackend: 'local',
     })
     refreshLibrary()
   }
@@ -524,7 +535,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength, language }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength, language, ttsBackend }),
         signal: ac.signal,
       })
       const data = await res.json()
@@ -823,6 +834,28 @@ export default function Home() {
               secret
             />
 
+            {/* TTS section */}
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+              TTS BACKENDS
+            </div>
+
+            <SettingsInput
+              label="ELEVENLABS API KEY"
+              placeholder="optional — enables ElevenLabs voices"
+              value={profileForm.elevenlabsKey}
+              onChange={v => setProfileForm(f => ({ ...f, elevenlabsKey: v }))}
+              secret
+            />
+
+            <SettingsInput
+              label="OPENAI API KEY"
+              placeholder="optional — enables OpenAI TTS voices"
+              value={profileForm.openaiKey}
+              onChange={v => setProfileForm(f => ({ ...f, openaiKey: v }))}
+              secret
+            />
+
             <button
               onClick={handleSaveProfile}
               disabled={!profileName.trim()}
@@ -969,18 +1002,20 @@ export default function Home() {
           <VoiceSelect label="ALEX" color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
           <VoiceSelect label="SAM" color="var(--sam)" voices={voices} selected={samVoice} onSelect={setSamVoice} />
 
-          <button
-            onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
-            style={{
-              fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
-              color: showClone ? 'var(--text)' : 'var(--muted)',
-              background: 'none', border: 'none', cursor: 'pointer',
-              fontFamily: 'inherit', padding: 0, marginLeft: 'auto',
-              transition: 'color 0.15s',
-            }}
-          >
-            {showClone ? '▾ CLONE' : '+ CLONE'}
-          </button>
+          {ttsBackend === 'local' && (
+            <button
+              onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
+              style={{
+                fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
+                color: showClone ? 'var(--text)' : 'var(--muted)',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'inherit', padding: 0, marginLeft: 'auto',
+                transition: 'color 0.15s',
+              }}
+            >
+              {showClone ? '▾ CLONE' : '+ CLONE'}
+            </button>
+          )}
 
         </div>
 
@@ -1148,6 +1183,31 @@ export default function Home() {
             <option value="Russian">RU</option>
           </select>
 
+          {/* TTS backend selector */}
+          <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2 }}>
+            {([
+              { id: 'local', label: 'LOCAL' },
+              { id: 'elevenlabs', label: '11LABS' },
+              { id: 'openai', label: 'OPENAI' },
+            ] as const).map(b => (
+              <button
+                key={b.id}
+                onClick={() => switchTtsBackend(b.id)}
+                style={{
+                  padding: '4px 8px', borderRadius: 6, fontSize: 8,
+                  fontWeight: ttsBackend === b.id ? 700 : 400,
+                  fontFamily: 'inherit', cursor: 'pointer',
+                  border: 'none', transition: 'all 0.15s',
+                  letterSpacing: '0.08em',
+                  background: ttsBackend === b.id ? 'var(--sam)' : 'transparent',
+                  color: ttsBackend === b.id ? '#000' : 'var(--muted)',
+                }}
+              >
+                {b.label}
+              </button>
+            ))}
+          </div>
+
           <div className="toolbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="cmd-hint" style={{
               display: 'none', alignItems: 'center', gap: 1,
@@ -1183,7 +1243,7 @@ export default function Home() {
                 {inputLooksLikeTranscript() && (
                   <button
                     onClick={handleVoiceTranscript}
-                    disabled={ttsOnline === false}
+                    disabled={!ttsReady}
                     aria-label="Voice this transcript"
                     style={{
                       padding: '10px 18px',
@@ -1193,7 +1253,7 @@ export default function Home() {
                       fontSize: 12,
                       letterSpacing: '0.08em',
                       minHeight: 44,
-                      cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
+                      cursor: !ttsReady ? 'not-allowed' : 'pointer',
                       transition: 'all 0.2s ease',
                       border: '1px solid var(--sam)',
                       background: 'transparent',
@@ -1216,14 +1276,14 @@ export default function Home() {
                     letterSpacing: '0.08em',
                     minWidth: 148,
                     minHeight: 44,
-                    cursor: ttsOnline === false ? 'not-allowed' : 'pointer',
+                    cursor: !ttsReady ? 'not-allowed' : 'pointer',
                     transition: 'all 0.2s ease',
                     border: 'none',
-                    background: ttsOnline === false  ? '#1a1a1a'
+                    background: !ttsReady            ? '#1a1a1a'
                               : !input.trim()        ? '#2a2a2a'
                               :                        'var(--accent)',
-                    color: (ttsOnline === false || !input.trim()) ? '#666' : '#000',
-                    boxShadow: input.trim() && ttsOnline !== false
+                    color: (!ttsReady || !input.trim()) ? '#666' : '#000',
+                    boxShadow: input.trim() && ttsReady
                       ? '0 0 24px rgba(255,92,58,0.3)' : 'none',
                   }}
                 >
@@ -1264,7 +1324,7 @@ export default function Home() {
       )}
 
       {/* ── TTS offline hint ── */}
-      {ttsOnline === false && stage === 'idle' && !result && (
+      {ttsBackend === 'local' && ttsOnline === false && stage === 'idle' && !result && (
         <div
           className="animate-slide-up"
           style={{
