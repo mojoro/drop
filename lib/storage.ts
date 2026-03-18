@@ -1,15 +1,58 @@
 import { readdir, readFile, writeFile, unlink, mkdir } from "fs/promises";
 import { join } from "path";
 import { existsSync } from "fs";
+import { randomBytes, createCipheriv, createDecipheriv, scryptSync } from "crypto";
 
 const DATA_DIR = join(process.cwd(), "data");
 const PODCASTS_DIR = join(DATA_DIR, "podcasts");
 const SETTINGS_DIR = join(DATA_DIR, "settings");
+const KEY_FILE = join(DATA_DIR, ".key");
 
 async function ensureDir(dir: string) {
   if (!existsSync(dir)) {
     await mkdir(dir, { recursive: true });
   }
+}
+
+// ── Encryption (AES-256-GCM) ──────────────────────────────────────────────
+
+/** Get or create a 32-byte encryption key. Prefers DROP_ENCRYPTION_KEY env var. */
+async function getEncryptionKey(): Promise<Buffer> {
+  // Env var takes precedence — derive a 32-byte key from it
+  const envKey = process.env.DROP_ENCRYPTION_KEY;
+  if (envKey) {
+    return scryptSync(envKey, "drop-salt", 32);
+  }
+
+  // Auto-generated key file
+  await ensureDir(DATA_DIR);
+  if (existsSync(KEY_FILE)) {
+    const hex = await readFile(KEY_FILE, "utf-8");
+    return Buffer.from(hex.trim(), "hex");
+  }
+
+  const key = randomBytes(32);
+  await writeFile(KEY_FILE, key.toString("hex"), { mode: 0o600 });
+  return key;
+}
+
+/** Encrypt a string → "iv:authTag:ciphertext" (all hex). */
+async function encrypt(plaintext: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(plaintext, "utf-8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted.toString("hex")}`;
+}
+
+/** Decrypt an "iv:authTag:ciphertext" string. */
+async function decrypt(data: string): Promise<string> {
+  const key = await getEncryptionKey();
+  const [ivHex, tagHex, ctHex] = data.split(":");
+  const decipher = createDecipheriv("aes-256-gcm", key, Buffer.from(ivHex, "hex"));
+  decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+  return decipher.update(ctHex, "hex", "utf-8") + decipher.final("utf-8");
 }
 
 // ── Podcasts ───────────────────────────────────────────────────────────────
@@ -137,12 +180,13 @@ export async function listProfiles(): Promise<SettingsProfile[]> {
   const profiles: SettingsProfile[] = [];
 
   for (const f of files) {
-    if (!f.endsWith(".json")) continue;
+    if (!f.endsWith(".enc")) continue;
     try {
       const raw = await readFile(join(SETTINGS_DIR, f), "utf-8");
-      profiles.push(JSON.parse(raw));
+      const json = await decrypt(raw);
+      profiles.push(JSON.parse(json));
     } catch {
-      // skip corrupt files
+      // skip corrupt/undecryptable files
     }
   }
 
@@ -154,8 +198,8 @@ export async function getProfile(name: string): Promise<SettingsProfile | null> 
   await ensureDir(SETTINGS_DIR);
   const slug = profileSlug(name);
   try {
-    const raw = await readFile(join(SETTINGS_DIR, `${slug}.json`), "utf-8");
-    return JSON.parse(raw);
+    const raw = await readFile(join(SETTINGS_DIR, `${slug}.enc`), "utf-8");
+    return JSON.parse(await decrypt(raw));
   } catch {
     return null;
   }
@@ -165,14 +209,15 @@ export async function saveProfile(profile: SettingsProfile): Promise<void> {
   await ensureDir(SETTINGS_DIR);
   const slug = profileSlug(profile.name);
   if (!slug) throw new Error("Profile name is required");
-  await writeFile(join(SETTINGS_DIR, `${slug}.json`), JSON.stringify(profile, null, 2));
+  const encrypted = await encrypt(JSON.stringify(profile));
+  await writeFile(join(SETTINGS_DIR, `${slug}.enc`), encrypted, { mode: 0o600 });
 }
 
 export async function deleteProfile(name: string): Promise<boolean> {
   await ensureDir(SETTINGS_DIR);
   const slug = profileSlug(name);
   try {
-    await unlink(join(SETTINGS_DIR, `${slug}.json`));
+    await unlink(join(SETTINGS_DIR, `${slug}.enc`));
     return true;
   } catch {
     return false;
