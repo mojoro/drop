@@ -1,12 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 type Voice = { id: string; name: string; type: 'builtin' | 'custom' }
 type Stage = 'idle' | 'extracting' | 'writing' | 'audio' | 'done' | 'error'
 type ScriptLine = { speaker: 'ALEX' | 'SAM'; text: string }
 type Result = { scriptLines: ScriptLine[]; audio: string | null; scriptBackend?: 'ollama' | 'openrouter' | 'featherless' | 'claude' }
+
+type SavedPodcast = {
+  id: string; title: string; input: string
+  scriptLines: ScriptLine[]; scriptBackend: string
+  alexVoice: string; samVoice: string; createdAt: string
+}
+
+type SavedProfile = Settings & { name: string }
 
 type Settings = {
   openrouterKey: string
@@ -255,6 +263,12 @@ export default function Home() {
   const [settings,     setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
   const [showSettings, setShowSettings] = useState(false)
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
+  const [showLibrary,  setShowLibrary]  = useState(false)
+  const [podcasts,     setPodcasts]     = useState<SavedPodcast[]>([])
+  const [profiles,     setProfiles]     = useState<SavedProfile[]>([])
+  const [saveTitle,    setSaveTitle]    = useState('')
+  const [saving,       setSaving]       = useState(false)
+  const [profileName,  setProfileName]  = useState('')
   const mediaRecRef    = useRef<MediaRecorder | null>(null)
   const chunksRef      = useRef<Blob[]>([])
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -324,11 +338,17 @@ export default function Home() {
       .catch(() => setTtsOnline(false))
   }
 
+  const refreshLibrary = useCallback(() => {
+    fetch('/api/library').then(r => r.json()).then(setPodcasts).catch(() => {})
+    fetch('/api/profiles').then(r => r.json()).then(setProfiles).catch(() => {})
+  }, [])
+
   useEffect(() => {
     refreshVoices()
     setSettings(loadSettings())
     fetch('/api/settings').then(r => r.json()).then(setServerStatus).catch(() => {})
-  }, [])
+    refreshLibrary()
+  }, [refreshLibrary])
 
   function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
     setSettings(prev => {
@@ -336,6 +356,62 @@ export default function Home() {
       saveSettings(next)
       return next
     })
+  }
+
+  async function handleSavePodcast() {
+    if (!result?.audio || !saveTitle.trim() || saving) return
+    setSaving(true)
+    try {
+      await fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: saveTitle.trim(),
+          input,
+          scriptLines: result.scriptLines,
+          scriptBackend: result.scriptBackend,
+          alexVoice, samVoice,
+          audio: result.audio,
+        }),
+      })
+      setSaveTitle('')
+      refreshLibrary()
+    } catch {
+      // silent
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDeletePodcast(id: string) {
+    await fetch(`/api/library/${id}`, { method: 'DELETE' })
+    refreshLibrary()
+  }
+
+  async function handleSaveProfile() {
+    if (!profileName.trim()) return
+    await fetch('/api/profiles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...settings, name: profileName.trim() }),
+    })
+    setProfileName('')
+    refreshLibrary()
+  }
+
+  function handleLoadProfile(profile: SavedProfile) {
+    const { name: _, ...rest } = profile
+    setSettings(rest)
+    saveSettings(rest)
+  }
+
+  async function handleDeleteProfile(name: string) {
+    await fetch('/api/profiles', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    refreshLibrary()
   }
 
   async function handleClone() {
@@ -410,20 +486,38 @@ export default function Home() {
         </p>
       </div>
 
-      {/* ── Settings toggle ── */}
-      <button
-        onClick={() => setShowSettings(s => !s)}
-        style={{
-          marginBottom: 16, padding: '5px 14px', borderRadius: 8,
-          fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
-          color: showSettings ? 'var(--text)' : 'var(--muted)',
-          background: showSettings ? 'var(--card)' : 'transparent',
-          border: `1px solid ${showSettings ? 'var(--border2)' : 'transparent'}`,
-          cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-        }}
-      >
-        {showSettings ? '▾ SETTINGS' : '▸ SETTINGS'}
-      </button>
+      {/* ── Panel toggles ── */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        <button
+          onClick={() => { setShowSettings(s => !s); setShowLibrary(false) }}
+          style={{
+            padding: '5px 14px', borderRadius: 8,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
+            color: showSettings ? 'var(--text)' : 'var(--muted)',
+            background: showSettings ? 'var(--card)' : 'transparent',
+            border: `1px solid ${showSettings ? 'var(--border2)' : 'transparent'}`,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+        >
+          {showSettings ? '▾ SETTINGS' : '▸ SETTINGS'}
+        </button>
+        <button
+          onClick={() => { setShowLibrary(s => !s); setShowSettings(false); if (!showLibrary) refreshLibrary() }}
+          style={{
+            padding: '5px 14px', borderRadius: 8,
+            fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
+            color: showLibrary ? 'var(--text)' : 'var(--muted)',
+            background: showLibrary ? 'var(--card)' : 'transparent',
+            border: `1px solid ${showLibrary ? 'var(--border2)' : 'transparent'}`,
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
+          }}
+        >
+          {showLibrary ? '▾ LIBRARY' : '▸ LIBRARY'}
+          {podcasts.length > 0 && (
+            <span style={{ marginLeft: 6, fontSize: 9, opacity: 0.6 }}>{podcasts.length}</span>
+          )}
+        </button>
+      </div>
 
       {/* ── Settings panel ── */}
       {showSettings && (
@@ -436,6 +530,72 @@ export default function Home() {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Profiles */}
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+              PROFILES
+            </div>
+
+            {profiles.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {profiles.map(p => (
+                  <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <button
+                      onClick={() => handleLoadProfile(p)}
+                      style={{
+                        padding: '4px 10px', borderRadius: 6, fontSize: 10,
+                        fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.15s',
+                        background: 'var(--card2)', border: '1px solid var(--border2)',
+                        color: 'var(--text)',
+                      }}
+                    >
+                      {p.name}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProfile(p.name)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--muted2)', fontSize: 10, fontFamily: 'inherit',
+                        padding: '2px 4px',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input
+                type="text"
+                placeholder="profile name"
+                value={profileName}
+                onChange={e => setProfileName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile() }}
+                style={{
+                  flex: 1, padding: '6px 10px', borderRadius: 8,
+                  background: 'var(--card2)', border: '1px solid var(--border2)',
+                  color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleSaveProfile}
+                disabled={!profileName.trim()}
+                style={{
+                  padding: '6px 14px', borderRadius: 8, fontSize: 10,
+                  fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
+                  cursor: profileName.trim() ? 'pointer' : 'not-allowed',
+                  border: 'none', transition: 'all 0.15s',
+                  background: profileName.trim() ? 'var(--accent)' : 'var(--card2)',
+                  color: profileName.trim() ? '#000' : 'var(--muted)',
+                }}
+              >
+                SAVE
+              </button>
+            </div>
+
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
             {/* Server status */}
             {serverStatus && (
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
@@ -537,6 +697,72 @@ export default function Home() {
             <p style={{ margin: 0, fontSize: 9, color: 'var(--muted2)', lineHeight: 1.5, marginTop: 4 }}>
               LLM priority: Ollama → OpenRouter → Featherless → Claude
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Library panel ── */}
+      {showLibrary && (
+        <div
+          className="animate-slide-up"
+          style={{
+            width: '100%', maxWidth: 640, marginBottom: 20,
+            borderRadius: 16, padding: '18px 20px',
+            background: 'var(--card)', border: '1px solid var(--border)',
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+              SAVED PODCASTS
+            </div>
+
+            {podcasts.length === 0 ? (
+              <p style={{ margin: 0, fontSize: 11, color: 'var(--muted2)' }}>
+                No saved podcasts yet. Generate one and save it.
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {podcasts.map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 12,
+                      padding: '10px 12px', borderRadius: 10,
+                      background: 'var(--card2)', border: '1px solid var(--border2)',
+                    }}
+                  >
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {p.title}
+                      </div>
+                      <div style={{ fontSize: 9, color: 'var(--muted2)', marginTop: 2, display: 'flex', gap: 8 }}>
+                        <span>{new Date(p.createdAt).toLocaleDateString()}</span>
+                        <span>{p.scriptLines.length} lines</span>
+                        <span>{p.scriptBackend.toUpperCase()}</span>
+                      </div>
+                    </div>
+                    <audio
+                      controls
+                      src={`/api/library/${p.id}/audio`}
+                      style={{ height: 32, flexShrink: 0 }}
+                    />
+                    <button
+                      onClick={() => handleDeletePodcast(p.id)}
+                      style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--muted2)', fontSize: 12, fontFamily: 'inherit',
+                        padding: '4px 6px', flexShrink: 0,
+                        transition: 'color 0.15s',
+                      }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#ff8566')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--muted2)')}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -821,6 +1047,42 @@ export default function Home() {
               ))}
             </div>
           </div>
+
+          {/* Save to library */}
+          {result.audio && (
+            <div style={{
+              borderRadius: 12, padding: '12px 16px',
+              background: 'var(--card)', border: '1px solid var(--border)',
+              display: 'flex', gap: 8, alignItems: 'center',
+            }}>
+              <input
+                type="text"
+                placeholder="episode title"
+                value={saveTitle}
+                onChange={e => setSaveTitle(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSavePodcast() }}
+                style={{
+                  flex: 1, padding: '7px 10px', borderRadius: 8,
+                  background: 'var(--card2)', border: '1px solid var(--border2)',
+                  color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none',
+                }}
+              />
+              <button
+                onClick={handleSavePodcast}
+                disabled={saving || !saveTitle.trim()}
+                style={{
+                  padding: '7px 16px', borderRadius: 8, fontSize: 10,
+                  fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
+                  cursor: saving || !saveTitle.trim() ? 'not-allowed' : 'pointer',
+                  border: 'none', transition: 'all 0.15s',
+                  background: saving || !saveTitle.trim() ? 'var(--card2)' : 'var(--green)',
+                  color: saving || !saveTitle.trim() ? 'var(--muted)' : '#000',
+                }}
+              >
+                {saving ? '...' : 'SAVE'}
+              </button>
+            </div>
+          )}
 
           {/* Footer row */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
