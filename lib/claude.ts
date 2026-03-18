@@ -1,6 +1,6 @@
-import { buildSystemPrompt, buildUserPrompt, getLengthConfig, type ScriptLength } from "@/lib/prompt";
+import { buildSystemPrompt, buildUserPrompt, getLengthConfig, type ScriptLength, type ScriptLanguage } from "@/lib/prompt";
 
-export async function generateScriptClaude(content: string, length: ScriptLength = "short"): Promise<string> {
+export async function generateScriptClaude(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Missing ANTHROPIC_API_KEY in .env.local");
   }
@@ -17,8 +17,8 @@ export async function generateScriptClaude(content: string, length: ScriptLength
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: cfg.maxTokens,
-      system: buildSystemPrompt(),
-      messages: [{ role: "user", content: buildUserPrompt(content, length) }],
+      system: buildSystemPrompt(language),
+      messages: [{ role: "user", content: buildUserPrompt(content, length, language) }],
     }),
   });
 

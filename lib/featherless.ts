@@ -5,6 +5,7 @@ import {
   stripCodeFences,
   getLengthConfig,
   type ScriptLength,
+  type ScriptLanguage,
 } from "@/lib/prompt";
 
 const FEATHERLESS_API_URL = "https://api.featherless.ai/v1/chat/completions";
@@ -74,7 +75,7 @@ async function callFeatherless(messages: Array<{ role: "system" | "user"; conten
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptFeatherless(content: string, length: ScriptLength = "short"): Promise<string> {
+export async function generateScriptFeatherless(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
@@ -82,8 +83,8 @@ export async function generateScriptFeatherless(content: string, length: ScriptL
   }
 
   const cfg = getLengthConfig(length);
-  const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent, length);
+  const systemPrompt = buildSystemPrompt(language);
+  const userPrompt = buildUserPrompt(cleanedContent, length, language);
 
   try {
     const firstPass = await callFeatherless([
@@ -97,7 +98,7 @@ export async function generateScriptFeatherless(content: string, length: ScriptL
 
     const repaired = await callFeatherless([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass, length) },
+      { role: "user", content: buildRepairPrompt(firstPass, length, language) },
     ], cfg.maxTokens);
 
     if (!validatePodcastScript(repaired, length)) {

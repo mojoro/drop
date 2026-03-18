@@ -1,4 +1,5 @@
 export type ScriptLength = "short" | "medium" | "long";
+export type ScriptLanguage = string; // e.g. "English", "German", "Japanese"
 
 const LENGTH_CONFIG = {
   short:  { lines: [10, 16],  chars: [1200, 2200],  duration: "60 seconds",  maxTokens: 1200 },
@@ -10,18 +11,24 @@ export function getLengthConfig(length: ScriptLength) {
   return LENGTH_CONFIG[length] || LENGTH_CONFIG.medium;
 }
 
-export function buildSystemPrompt(): string {
+export function buildSystemPrompt(language?: ScriptLanguage): string {
+  const langInstruction = language && language !== "English"
+    ? ` Write ALL dialogue in ${language}.`
+    : "";
   return [
     "You are a podcast script writer.",
     "Write a punchy, 2-host dialogue.",
     'Return ONLY lines in this exact format: "ALEX: ..." or "SAM: ...".',
     "No intro, no title, no bullets, no stage directions, no markdown.",
-    "Keep it concise and natural.",
+    `Keep it concise and natural.${langInstruction}`,
   ].join(" ");
 }
 
-export function buildUserPrompt(content: string, length: ScriptLength = "short"): string {
+export function buildUserPrompt(content: string, length: ScriptLength = "short", language?: ScriptLanguage): string {
   const cfg = getLengthConfig(length);
+  const langRule = language && language !== "English"
+    ? `\n- Write ALL dialogue lines in ${language} (keep ALEX: and SAM: prefixes in English)`
+    : "";
   return `
 Write a sharp podcast dialogue based on the source below.
 
@@ -33,15 +40,18 @@ Rules:
 - Every line must start with ALEX: or SAM:
 - End with a memorable one-line takeaway from Sam
 - Target roughly ${cfg.duration} spoken duration
-- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters
+- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters${langRule}
 
 Source:
 ${content.trim().slice(0, 10000)}
 `.trim();
 }
 
-export function buildRepairPrompt(firstPass: string, length: ScriptLength = "short"): string {
+export function buildRepairPrompt(firstPass: string, length: ScriptLength = "short", language?: ScriptLanguage): string {
   const cfg = getLengthConfig(length);
+  const langRule = language && language !== "English"
+    ? `\n- Keep dialogue in ${language} (ALEX: and SAM: prefixes stay in English)`
+    : "";
   return `
 Rewrite the text below into the required strict format.
 
@@ -50,7 +60,7 @@ Rules:
 - Keep the meaning
 - No extra commentary
 - ${cfg.lines[0]} to ${cfg.lines[1]} total lines
-- End with a memorable SAM line
+- End with a memorable SAM line${langRule}
 
 Text:
 ${firstPass}

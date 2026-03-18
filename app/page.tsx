@@ -247,6 +247,7 @@ export default function Home() {
   const [error,      setError]      = useState<string | null>(null)
   const [alexVoice,  setAlexVoice]  = useState('alba')
   const [scriptLength, setScriptLength] = useState<'short' | 'medium' | 'long'>('short')
+  const [language, setLanguage] = useState('English')
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
   const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null)
@@ -523,7 +524,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile, length: scriptLength, language }),
         signal: ac.signal,
       })
       const data = await res.json()
@@ -1117,6 +1118,35 @@ export default function Home() {
               </button>
             ))}
           </div>
+
+          {/* Language selector */}
+          <select
+            value={language}
+            onChange={e => setLanguage(e.target.value)}
+            style={{
+              padding: '4px 24px 4px 8px', borderRadius: 8, fontSize: 9,
+              fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.08em',
+              background: 'var(--card)', border: 'none',
+              color: language === 'English' ? 'var(--muted)' : 'var(--text)',
+              cursor: 'pointer', outline: 'none',
+            }}
+          >
+            <option value="English">EN</option>
+            <option value="German">DE</option>
+            <option value="French">FR</option>
+            <option value="Spanish">ES</option>
+            <option value="Italian">IT</option>
+            <option value="Portuguese">PT</option>
+            <option value="Dutch">NL</option>
+            <option value="Polish">PL</option>
+            <option value="Japanese">JA</option>
+            <option value="Chinese">ZH</option>
+            <option value="Korean">KO</option>
+            <option value="Arabic">AR</option>
+            <option value="Hindi">HI</option>
+            <option value="Turkish">TR</option>
+            <option value="Russian">RU</option>
+          </select>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span className="cmd-hint" style={{

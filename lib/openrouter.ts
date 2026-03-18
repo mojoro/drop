@@ -5,6 +5,7 @@ import {
   stripCodeFences,
   getLengthConfig,
   type ScriptLength,
+  type ScriptLanguage,
 } from "@/lib/prompt";
 import { validatePodcastScript } from "@/lib/featherless";
 
@@ -61,6 +62,7 @@ export async function generateScriptOpenRouter(
   apiKey?: string,
   model?: string,
   length: ScriptLength = "short",
+  language?: ScriptLanguage,
 ): Promise<string> {
   const key = apiKey || process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("Missing OpenRouter API key");
@@ -71,8 +73,8 @@ export async function generateScriptOpenRouter(
   }
 
   const cfg = getLengthConfig(length);
-  const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent, length);
+  const systemPrompt = buildSystemPrompt(language);
+  const userPrompt = buildUserPrompt(cleanedContent, length, language);
 
   try {
     const firstPass = await callOpenRouter(
@@ -92,7 +94,7 @@ export async function generateScriptOpenRouter(
     const repaired = await callOpenRouter(
       [
         { role: "system", content: systemPrompt },
-        { role: "user", content: buildRepairPrompt(firstPass, length) },
+        { role: "user", content: buildRepairPrompt(firstPass, length, language) },
       ],
       key,
       model,

@@ -4,6 +4,7 @@ import {
   buildRepairPrompt,
   stripCodeFences,
   type ScriptLength,
+  type ScriptLanguage,
 } from "@/lib/prompt";
 import { validatePodcastScript, extractValidLines } from "@/lib/featherless";
 
@@ -53,15 +54,15 @@ async function callOllama(
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptOllama(content: string, length: ScriptLength = "short"): Promise<string> {
+export async function generateScriptOllama(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Ollama.");
   }
 
-  const systemPrompt = buildSystemPrompt();
-  const userPrompt = buildUserPrompt(cleanedContent, length);
+  const systemPrompt = buildSystemPrompt(language);
+  const userPrompt = buildUserPrompt(cleanedContent, length, language);
 
   try {
     const firstPass = await callOllama([
@@ -84,7 +85,7 @@ export async function generateScriptOllama(content: string, length: ScriptLength
 
     const repaired = await callOllama([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass, length) },
+      { role: "user", content: buildRepairPrompt(firstPass, length, language) },
     ]);
 
     if (validatePodcastScript(repaired, length)) {
