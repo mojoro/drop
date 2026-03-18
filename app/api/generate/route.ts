@@ -7,24 +7,20 @@ import { generateScriptOllama } from "@/lib/ollama";
 import { parseScript, getScriptStats } from "@/lib/script";
 import { generateVoice, DEFAULT_ALEX_VOICE, DEFAULT_SAM_VOICE } from "@/lib/tts";
 import { stitchWav } from "@/lib/wavStitching";
+import { getProfile, type SettingsProfile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
 type ScriptBackend = "ollama" | "openrouter" | "featherless" | "claude";
 
-type ClientSettings = {
-  openrouterKey?: string;
-  openrouterModel?: string;
-  featherlessKey?: string;
-  anthropicKey?: string;
-  needleKey?: string;
-  ollamaUrl?: string;
-  ollamaModel?: string;
-};
-
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   return "Unknown error";
+}
+
+/** Resolve a config value: profile → env var → fallback. */
+function cfg(profileVal: string | undefined, envKey: string, fallback = ""): string {
+  return profileVal || process.env[envKey] || fallback;
 }
 
 export async function POST(req: Request) {
@@ -39,31 +35,33 @@ export async function POST(req: Request) {
     const alexVoice = typeof body?.alexVoice === "string" ? body.alexVoice : DEFAULT_ALEX_VOICE;
     const samVoice  = typeof body?.samVoice  === "string" ? body.samVoice  : DEFAULT_SAM_VOICE;
 
-    // Client settings override env vars
-    const settings: ClientSettings = body?.settings ?? {};
+    // Load active profile from server (keys never come from the client)
+    let profile: SettingsProfile | null = null;
+    if (typeof body?.profile === "string" && body.profile) {
+      profile = await getProfile(body.profile);
+    }
 
-    // Temporarily override env vars with client-provided keys for this request
+    const ollamaModel = cfg(profile?.ollamaModel, "OLLAMA_MODEL");
+    const ollamaUrl   = cfg(profile?.ollamaUrl, "OLLAMA_URL", "http://localhost:11434");
+    const orKey       = cfg(profile?.openrouterKey, "OPENROUTER_API_KEY");
+    const orModel     = profile?.openrouterModel || "";
+    const flKey       = cfg(profile?.featherlessKey, "FEATHERLESS_API_KEY");
+    const aKey        = cfg(profile?.anthropicKey, "ANTHROPIC_API_KEY");
+    const needleKey   = cfg(profile?.needleKey, "NEEDLE_API_KEY");
+
+    // Temporarily set env vars so downstream modules can read them
     const envOverrides: Record<string, string | undefined> = {};
-    if (settings.needleKey) {
-      envOverrides.NEEDLE_API_KEY = process.env.NEEDLE_API_KEY;
-      process.env.NEEDLE_API_KEY = settings.needleKey;
+    function setEnv(key: string, val: string) {
+      if (val) {
+        envOverrides[key] = process.env[key];
+        process.env[key] = val;
+      }
     }
-    if (settings.ollamaUrl) {
-      envOverrides.OLLAMA_URL = process.env.OLLAMA_URL;
-      process.env.OLLAMA_URL = settings.ollamaUrl;
-    }
-    if (settings.ollamaModel) {
-      envOverrides.OLLAMA_MODEL = process.env.OLLAMA_MODEL;
-      process.env.OLLAMA_MODEL = settings.ollamaModel;
-    }
-    if (settings.featherlessKey) {
-      envOverrides.FEATHERLESS_API_KEY = process.env.FEATHERLESS_API_KEY;
-      process.env.FEATHERLESS_API_KEY = settings.featherlessKey;
-    }
-    if (settings.anthropicKey) {
-      envOverrides.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-      process.env.ANTHROPIC_API_KEY = settings.anthropicKey;
-    }
+    setEnv("OLLAMA_URL", ollamaUrl);
+    setEnv("OLLAMA_MODEL", ollamaModel);
+    setEnv("FEATHERLESS_API_KEY", flKey);
+    setEnv("ANTHROPIC_API_KEY", aKey);
+    setEnv("NEEDLE_API_KEY", needleKey);
 
     try {
       const extracted = await extractContent(input);
@@ -73,7 +71,6 @@ export async function POST(req: Request) {
       let scriptBackend: ScriptBackend = "claude";
 
       // 1. Ollama (local)
-      const ollamaModel = settings.ollamaModel || process.env.OLLAMA_MODEL;
       if (ollamaModel) {
         try {
           script = await generateScriptOllama(extracted);
@@ -84,34 +81,27 @@ export async function POST(req: Request) {
       }
 
       // 2. OpenRouter
-      if (script === undefined) {
-        const orKey = settings.openrouterKey || process.env.OPENROUTER_API_KEY;
-        if (orKey) {
-          try {
-            script = await generateScriptOpenRouter(extracted, orKey, settings.openrouterModel);
-            scriptBackend = "openrouter";
-          } catch (e) {
-            console.warn("OpenRouter failed, falling back:", e);
-          }
+      if (script === undefined && orKey) {
+        try {
+          script = await generateScriptOpenRouter(extracted, orKey, orModel);
+          scriptBackend = "openrouter";
+        } catch (e) {
+          console.warn("OpenRouter failed, falling back:", e);
         }
       }
 
       // 3. Featherless
-      if (script === undefined) {
-        const flKey = settings.featherlessKey || process.env.FEATHERLESS_API_KEY;
-        if (flKey) {
-          try {
-            script = await generateScriptFeatherless(extracted);
-            scriptBackend = "featherless";
-          } catch (e) {
-            console.warn("Featherless failed, falling back:", e);
-          }
+      if (script === undefined && flKey) {
+        try {
+          script = await generateScriptFeatherless(extracted);
+          scriptBackend = "featherless";
+        } catch (e) {
+          console.warn("Featherless failed, falling back:", e);
         }
       }
 
       // 4. Claude (last resort)
       if (script === undefined) {
-        const aKey = settings.anthropicKey || process.env.ANTHROPIC_API_KEY;
         if (!aKey) {
           throw new Error(
             "No LLM backend available. Configure Ollama, OpenRouter, Featherless, or Anthropic in settings."

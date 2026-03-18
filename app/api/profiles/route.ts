@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { listProfiles, saveProfile, deleteProfile } from "@/lib/storage";
+import { listProfiles, saveProfile, deleteProfile, maskProfile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
+/** Returns profiles with masked keys — secrets never leave the server. */
 export async function GET() {
   const profiles = await listProfiles();
-  return NextResponse.json(profiles);
+  return NextResponse.json(profiles.map(maskProfile));
 }
 
 export async function POST(req: Request) {

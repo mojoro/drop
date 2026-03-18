@@ -111,6 +111,26 @@ export type SettingsProfile = {
   ollamaModel: string;
 };
 
+const KEY_FIELDS = ["openrouterKey", "featherlessKey", "anthropicKey", "needleKey"] as const;
+
+function maskKey(key: string): string {
+  if (!key || key.length < 8) return key ? "••••" : "";
+  return key.slice(0, 5) + "•••" + key.slice(-4);
+}
+
+/** Return a copy of the profile with secret keys masked. */
+export function maskProfile(profile: SettingsProfile): SettingsProfile {
+  const masked = { ...profile };
+  for (const field of KEY_FIELDS) {
+    masked[field] = maskKey(masked[field]);
+  }
+  return masked;
+}
+
+function profileSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 export async function listProfiles(): Promise<SettingsProfile[]> {
   await ensureDir(SETTINGS_DIR);
   const files = await readdir(SETTINGS_DIR);
@@ -129,16 +149,28 @@ export async function listProfiles(): Promise<SettingsProfile[]> {
   return profiles.sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** Get a profile with full (unmasked) keys — only for server-side use. */
+export async function getProfile(name: string): Promise<SettingsProfile | null> {
+  await ensureDir(SETTINGS_DIR);
+  const slug = profileSlug(name);
+  try {
+    const raw = await readFile(join(SETTINGS_DIR, `${slug}.json`), "utf-8");
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
 export async function saveProfile(profile: SettingsProfile): Promise<void> {
   await ensureDir(SETTINGS_DIR);
-  const slug = profile.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = profileSlug(profile.name);
   if (!slug) throw new Error("Profile name is required");
   await writeFile(join(SETTINGS_DIR, `${slug}.json`), JSON.stringify(profile, null, 2));
 }
 
 export async function deleteProfile(name: string): Promise<boolean> {
   await ensureDir(SETTINGS_DIR);
-  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const slug = profileSlug(name);
   try {
     await unlink(join(SETTINGS_DIR, `${slug}.json`));
     return true;

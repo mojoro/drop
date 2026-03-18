@@ -14,10 +14,9 @@ type SavedPodcast = {
   alexVoice: string; samVoice: string; createdAt: string
 }
 
-type SavedProfile = Settings & { name: string }
-
-type Settings = {
-  openrouterKey: string
+type MaskedProfile = {
+  name: string
+  openrouterKey: string   // masked, e.g. "sk-or•••a3f2"
   openrouterModel: string
   featherlessKey: string
   anthropicKey: string
@@ -34,31 +33,16 @@ type ServerStatus = {
   needle: boolean
 }
 
-const DEFAULT_SETTINGS: Settings = {
-  openrouterKey: '',
-  openrouterModel: '',
-  featherlessKey: '',
-  anthropicKey: '',
-  needleKey: '',
-  ollamaUrl: '',
-  ollamaModel: '',
+const PROFILE_KEY = 'drop-active-profile'
+
+function loadActiveProfile(): string {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem(PROFILE_KEY) || ''
 }
 
-const STORAGE_KEY = 'drop-settings'
-
-function loadSettings(): Settings {
-  if (typeof window === 'undefined') return DEFAULT_SETTINGS
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return DEFAULT_SETTINGS
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) }
-  } catch {
-    return DEFAULT_SETTINGS
-  }
-}
-
-function saveSettings(s: Settings) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s))
+function saveActiveProfile(name: string) {
+  if (name) localStorage.setItem(PROFILE_KEY, name)
+  else localStorage.removeItem(PROFILE_KEY)
 }
 
 // ── Fallback voices (used when sidecar is offline) ───────────────────────────
@@ -260,15 +244,19 @@ export default function Home() {
   const [cloneMsg,     setCloneMsg]     = useState<{ ok: boolean; text: string } | null>(null)
   const [recording,    setRecording]    = useState(false)
   const [recordSecs,   setRecordSecs]   = useState(0)
-  const [settings,     setSettings]     = useState<Settings>(DEFAULT_SETTINGS)
+  const [activeProfile, setActiveProfile] = useState('')
   const [showSettings, setShowSettings] = useState(false)
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null)
   const [showLibrary,  setShowLibrary]  = useState(false)
   const [podcasts,     setPodcasts]     = useState<SavedPodcast[]>([])
-  const [profiles,     setProfiles]     = useState<SavedProfile[]>([])
+  const [profiles,     setProfiles]     = useState<MaskedProfile[]>([])
   const [saveTitle,    setSaveTitle]    = useState('')
   const [saving,       setSaving]       = useState(false)
   const [profileName,  setProfileName]  = useState('')
+  const [profileForm,  setProfileForm]  = useState({
+    openrouterKey: '', openrouterModel: '', featherlessKey: '',
+    anthropicKey: '', needleKey: '', ollamaUrl: '', ollamaModel: '',
+  })
   const mediaRecRef    = useRef<MediaRecorder | null>(null)
   const chunksRef      = useRef<Blob[]>([])
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -345,17 +333,14 @@ export default function Home() {
 
   useEffect(() => {
     refreshVoices()
-    setSettings(loadSettings())
+    setActiveProfile(loadActiveProfile())
     fetch('/api/settings').then(r => r.json()).then(setServerStatus).catch(() => {})
     refreshLibrary()
   }, [refreshLibrary])
 
-  function updateSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
-    setSettings(prev => {
-      const next = { ...prev, [key]: value }
-      saveSettings(next)
-      return next
-    })
+  function selectProfile(name: string) {
+    setActiveProfile(name)
+    saveActiveProfile(name)
   }
 
   async function handleSavePodcast() {
@@ -393,19 +378,18 @@ export default function Home() {
     await fetch('/api/profiles', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...settings, name: profileName.trim() }),
+      body: JSON.stringify({ ...profileForm, name: profileName.trim() }),
     })
     setProfileName('')
+    setProfileForm({
+      openrouterKey: '', openrouterModel: '', featherlessKey: '',
+      anthropicKey: '', needleKey: '', ollamaUrl: '', ollamaModel: '',
+    })
     refreshLibrary()
   }
 
-  function handleLoadProfile(profile: SavedProfile) {
-    const { name: _, ...rest } = profile
-    setSettings(rest)
-    saveSettings(rest)
-  }
-
   async function handleDeleteProfile(name: string) {
+    if (activeProfile === name) selectProfile('')
     await fetch('/api/profiles', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -446,7 +430,7 @@ export default function Home() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, settings }),
+        body: JSON.stringify({ input: input.trim(), alexVoice, samVoice, profile: activeProfile }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `HTTP ${res.status}`)
@@ -530,83 +514,15 @@ export default function Home() {
           }}
         >
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            {/* Profiles */}
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
-              PROFILES
-            </div>
+            <p style={{ margin: 0, fontSize: 10, color: 'var(--muted)', lineHeight: 1.5 }}>
+              Keys are stored on the server only. Select an active profile or use .env.local.
+            </p>
 
-            {profiles.length > 0 && (
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {profiles.map(p => (
-                  <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <button
-                      onClick={() => handleLoadProfile(p)}
-                      style={{
-                        padding: '4px 10px', borderRadius: 6, fontSize: 10,
-                        fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.15s',
-                        background: 'var(--card2)', border: '1px solid var(--border2)',
-                        color: 'var(--text)',
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProfile(p.name)}
-                      style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--muted2)', fontSize: 10, fontFamily: 'inherit',
-                        padding: '2px 4px',
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input
-                type="text"
-                placeholder="profile name"
-                value={profileName}
-                onChange={e => setProfileName(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveProfile() }}
-                style={{
-                  flex: 1, padding: '6px 10px', borderRadius: 8,
-                  background: 'var(--card2)', border: '1px solid var(--border2)',
-                  color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none',
-                }}
-              />
-              <button
-                onClick={handleSaveProfile}
-                disabled={!profileName.trim()}
-                style={{
-                  padding: '6px 14px', borderRadius: 8, fontSize: 10,
-                  fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
-                  cursor: profileName.trim() ? 'pointer' : 'not-allowed',
-                  border: 'none', transition: 'all 0.15s',
-                  background: profileName.trim() ? 'var(--accent)' : 'var(--card2)',
-                  color: profileName.trim() ? '#000' : 'var(--muted)',
-                }}
-              >
-                SAVE
-              </button>
-            </div>
-
-            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-
-            {/* Server status */}
+            {/* Server env status */}
             {serverStatus && (
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {(['ollama', 'openrouter', 'featherless', 'anthropic', 'needle'] as const).map(k => {
-                  const hasEnv = serverStatus[k]
-                  const hasClient = k === 'ollama' ? !!settings.ollamaModel
-                    : k === 'openrouter' ? !!settings.openrouterKey
-                    : k === 'featherless' ? !!settings.featherlessKey
-                    : k === 'anthropic' ? !!settings.anthropicKey
-                    : !!settings.needleKey
-                  const active = hasEnv || hasClient
+                  const active = serverStatus[k]
                   return (
                     <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <div style={{
@@ -615,7 +531,7 @@ export default function Home() {
                         boxShadow: active ? '0 0 6px rgba(74,222,128,0.4)' : 'none',
                       }} />
                       <span style={{ fontSize: 9, letterSpacing: '0.1em', color: active ? 'var(--text)' : 'var(--muted2)' }}>
-                        {k.toUpperCase()}
+                        {k.toUpperCase()} {active ? '(env)' : ''}
                       </span>
                     </div>
                   )
@@ -623,28 +539,103 @@ export default function Home() {
               </div>
             )}
 
-            <p style={{ margin: 0, fontSize: 10, color: 'var(--muted)', lineHeight: 1.5 }}>
-              Keys are stored in your browser only. Server env vars are used as defaults.
-            </p>
-
-            {/* LLM section */}
+            {/* Active profile selector */}
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 4 }}>
-              LLM BACKENDS
+              ACTIVE PROFILE
             </div>
+
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+              <button
+                onClick={() => selectProfile('')}
+                style={{
+                  padding: '5px 12px', borderRadius: 6, fontSize: 10,
+                  fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.15s',
+                  background: !activeProfile ? 'var(--accent)' : 'var(--card2)',
+                  border: `1px solid ${!activeProfile ? 'var(--accent)' : 'var(--border2)'}`,
+                  color: !activeProfile ? '#000' : 'var(--muted)',
+                }}
+              >
+                env only
+              </button>
+              {profiles.map(p => (
+                <div key={p.name} style={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <button
+                    onClick={() => selectProfile(p.name)}
+                    style={{
+                      padding: '5px 12px', borderRadius: 6, fontSize: 10,
+                      fontFamily: 'inherit', cursor: 'pointer', transition: 'all 0.15s',
+                      background: activeProfile === p.name ? 'var(--accent)' : 'var(--card2)',
+                      border: `1px solid ${activeProfile === p.name ? 'var(--accent)' : 'var(--border2)'}`,
+                      color: activeProfile === p.name ? '#000' : 'var(--text)',
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProfile(p.name)}
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--muted2)', fontSize: 10, fontFamily: 'inherit',
+                      padding: '2px 4px',
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Show masked keys for active profile */}
+            {activeProfile && (() => {
+              const p = profiles.find(pr => pr.name === activeProfile)
+              if (!p) return null
+              const keys = [
+                { label: 'OLLAMA', val: p.ollamaModel ? `${p.ollamaModel} @ ${p.ollamaUrl || 'localhost'}` : '' },
+                { label: 'OPENROUTER', val: p.openrouterKey },
+                { label: 'FEATHERLESS', val: p.featherlessKey },
+                { label: 'ANTHROPIC', val: p.anthropicKey },
+                { label: 'NEEDLE', val: p.needleKey },
+              ].filter(k => k.val)
+              if (keys.length === 0) return <p style={{ margin: 0, fontSize: 10, color: 'var(--muted2)' }}>No keys configured in this profile.</p>
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {keys.map(k => (
+                    <div key={k.label} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--muted)', width: 80 }}>{k.label}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text)', fontFamily: 'inherit' }}>{k.val}</span>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+
+            {/* Create new profile */}
+            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+              CREATE PROFILE
+            </div>
+
+            <SettingsInput
+              label="PROFILE NAME"
+              placeholder="e.g. work, personal"
+              value={profileName}
+              onChange={v => setProfileName(v)}
+            />
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <SettingsInput
                 label="OLLAMA MODEL"
                 placeholder="e.g. qwen2.5:7b"
-                value={settings.ollamaModel}
-                onChange={v => updateSetting('ollamaModel', v)}
+                value={profileForm.ollamaModel}
+                onChange={v => setProfileForm(f => ({ ...f, ollamaModel: v }))}
                 style={{ flex: 1, minWidth: 140 }}
               />
               <SettingsInput
                 label="OLLAMA URL"
                 placeholder="http://localhost:11434"
-                value={settings.ollamaUrl}
-                onChange={v => updateSetting('ollamaUrl', v)}
+                value={profileForm.ollamaUrl}
+                onChange={v => setProfileForm(f => ({ ...f, ollamaUrl: v }))}
                 style={{ flex: 1, minWidth: 180 }}
               />
             </div>
@@ -652,50 +643,59 @@ export default function Home() {
             <SettingsInput
               label="OPENROUTER API KEY"
               placeholder="sk-or-..."
-              value={settings.openrouterKey}
-              onChange={v => updateSetting('openrouterKey', v)}
+              value={profileForm.openrouterKey}
+              onChange={v => setProfileForm(f => ({ ...f, openrouterKey: v }))}
               secret
             />
 
             <SettingsInput
               label="OPENROUTER MODEL"
               placeholder="qwen/qwen3-8b (default)"
-              value={settings.openrouterModel}
-              onChange={v => updateSetting('openrouterModel', v)}
+              value={profileForm.openrouterModel}
+              onChange={v => setProfileForm(f => ({ ...f, openrouterModel: v }))}
             />
 
             <SettingsInput
               label="FEATHERLESS API KEY"
               placeholder="fl-..."
-              value={settings.featherlessKey}
-              onChange={v => updateSetting('featherlessKey', v)}
+              value={profileForm.featherlessKey}
+              onChange={v => setProfileForm(f => ({ ...f, featherlessKey: v }))}
               secret
             />
 
             <SettingsInput
               label="ANTHROPIC API KEY"
               placeholder="sk-ant-..."
-              value={settings.anthropicKey}
-              onChange={v => updateSetting('anthropicKey', v)}
+              value={profileForm.anthropicKey}
+              onChange={v => setProfileForm(f => ({ ...f, anthropicKey: v }))}
               secret
             />
-
-            {/* Scraping section */}
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginTop: 8 }}>
-              SCRAPING
-            </div>
 
             <SettingsInput
               label="NEEDLE API KEY"
               placeholder="optional — built-in scraper used by default"
-              value={settings.needleKey}
-              onChange={v => updateSetting('needleKey', v)}
+              value={profileForm.needleKey}
+              onChange={v => setProfileForm(f => ({ ...f, needleKey: v }))}
               secret
             />
 
-            {/* Fallback order */}
-            <p style={{ margin: 0, fontSize: 9, color: 'var(--muted2)', lineHeight: 1.5, marginTop: 4 }}>
-              LLM priority: Ollama → OpenRouter → Featherless → Claude
+            <button
+              onClick={handleSaveProfile}
+              disabled={!profileName.trim()}
+              style={{
+                padding: '8px 20px', borderRadius: 8, fontSize: 11,
+                fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
+                cursor: profileName.trim() ? 'pointer' : 'not-allowed',
+                border: 'none', transition: 'all 0.15s', alignSelf: 'flex-start',
+                background: profileName.trim() ? 'var(--accent)' : 'var(--card2)',
+                color: profileName.trim() ? '#000' : 'var(--muted)',
+              }}
+            >
+              SAVE PROFILE
+            </button>
+
+            <p style={{ margin: 0, fontSize: 9, color: 'var(--muted2)', lineHeight: 1.5 }}>
+              LLM priority: Ollama → OpenRouter → Featherless → Claude. Profile keys override env vars.
             </p>
           </div>
         </div>
