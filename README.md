@@ -128,6 +128,38 @@ OLLAMA_MODEL=qwen2.5:7b
 
 ---
 
+## Qwen3-TTS (local GPU, experimental)
+
+> **Untested.** The Qwen3-TTS integration was written against the published API docs and model specs but has not been run end-to-end — the hardware required to do so wasn't available during development. The code is structurally sound and the API contract matches, but you should expect to debug edge cases on first use. PRs welcome.
+
+Drop includes a second local TTS sidecar (`qwen-tts-server/`) backed by [Qwen3-TTS](https://github.com/QwenLM/Qwen3-TTS) from Alibaba. It uses the `CustomVoice` model variant — 9 named speakers, no reference audio required.
+
+**Requirements:** NVIDIA GPU with enough VRAM (8 GB+ recommended for the 0.6B model), [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) for Docker GPU passthrough.
+
+**With Docker:**
+
+```bash
+docker compose --profile qwen up
+```
+
+This builds the `qwen-tts-server` image, downloads the model weights on first run (several GB — watch with `docker compose logs qwen-tts`), and wires `QWEN_TTS_SERVER_URL` into the app automatically. Switch to the **QWEN3** backend in the toolbar once it's running.
+
+**Without Docker:**
+
+```bash
+cd qwen-tts-server
+uv sync
+uv run uvicorn main:app --port 8001
+```
+
+**Available voices:** ryan, serena, aiden, vivian, uncle\_fu, dylan, eric, ono\_anna, sohee. Default podcast pair: ryan (host A) and serena (host B).
+
+**Language support:** English, German, French, Spanish, Italian, Portuguese, Japanese, Chinese, Korean, Russian. Other languages fall back to auto-detection.
+
+Override the model with the `QWEN_MODEL` environment variable, e.g. `Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice` for the larger variant with instruction control.
+
+---
+
 ## Default settings
 
 Drop reads `drop.config.json` at the project root on startup and applies the values as UI defaults. Edit this file to change what you see when you first open the app — no code changes needed.
@@ -172,6 +204,7 @@ All fields are optional and merge with the built-in fallbacks. See `lib/config.t
 
 **TTS backends**
 - **Local (pocket-tts)** — runs on-device, English only, 8 built-in voices (alba, marius, javert, jean, fantine, cosette, eponine, azelma)
+- **Qwen3-TTS** *(experimental, GPU required)* — local, 9 named speakers, 10 languages — see [Qwen3-TTS section](#qwen3-tts-local-gpu-experimental) for setup
 - **ElevenLabs** — cloud, high quality, multilanguage
 - **OpenAI** — cloud, multilanguage
 
