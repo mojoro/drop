@@ -160,7 +160,23 @@ export default function Home() {
   useEffect(() => {
     refreshVoices()
     setActiveProfile(loadActiveProfile())
-    fetch('/api/settings').then(r => r.json()).then(setServerStatus).catch(() => {})
+    fetch('/api/settings').then(r => r.json()).then(data => {
+      const { config, ...status } = data
+      setServerStatus(status)
+      if (config) {
+        if (config.hostA) setHostA(config.hostA)
+        if (config.hostB) setHostB(config.hostB)
+        if (config.language) setLanguage(config.language)
+        if (config.scriptLength) setScriptLength(config.scriptLength)
+        if (config.customMinutes) setCustomMinutes(config.customMinutes)
+        if (config.llmBackend) setLlmBackend(config.llmBackend)
+        if (Array.isArray(config.llmOrder) && config.llmOrder.length) setLlmOrder(config.llmOrder)
+        if (config.ttsBackend) setTtsBackend(config.ttsBackend)
+        if (typeof config.monologue === 'boolean') setMonologue(config.monologue)
+        if (config.customSystemPrompt) setCustomSystemPrompt(config.customSystemPrompt)
+        if (config.customUserPrompt) setCustomUserPrompt(config.customUserPrompt)
+      }
+    }).catch(() => {})
     refreshLibrary()
   }, [refreshLibrary])
 
