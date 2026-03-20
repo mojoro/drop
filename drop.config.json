@@ -1,0 +1,15 @@
+{
+  "defaults": {
+    "hostA": "ALEX",
+    "hostB": "SAM",
+    "language": "English",
+    "scriptLength": "short",
+    "customMinutes": 5,
+    "llmBackend": "auto",
+    "llmOrder": ["ollama", "openrouter", "featherless", "claude"],
+    "ttsBackend": "local",
+    "monologue": false,
+    "customSystemPrompt": "",
+    "customUserPrompt": ""
+  }
+}

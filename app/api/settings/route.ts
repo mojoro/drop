@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
+import { loadConfig } from "@/lib/config";
 
 export const runtime = "nodejs";
 
-/** Returns which backends have env-var keys configured (no secrets exposed). */
+/** Returns which backends have env-var keys configured (no secrets exposed) plus drop.config.json defaults. */
 export async function GET() {
+  const config = await loadConfig();
   return NextResponse.json({
     ollama: !!process.env.OLLAMA_MODEL,
     ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
@@ -14,5 +16,6 @@ export async function GET() {
     needle: !!process.env.NEEDLE_API_KEY,
     elevenlabs: !!process.env.ELEVENLABS_API_KEY,
     openaiTts: !!process.env.OPENAI_API_KEY,
+    config,
   });
 }
