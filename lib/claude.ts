@@ -1,11 +1,13 @@
-import { buildSystemPrompt, buildUserPrompt, getLengthConfig, type ScriptLength, type ScriptLanguage } from "@/lib/prompt";
+import { buildSystemPrompt, buildUserPrompt, getLengthConfig, DEFAULT_HOSTS, type ScriptLength, type ScriptLanguage, type PromptOptions } from "@/lib/prompt";
 
-export async function generateScriptClaude(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
+export async function generateScriptClaude(content: string, length: ScriptLength = "short", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Missing ANTHROPIC_API_KEY in .env.local");
   }
 
-  const cfg = getLengthConfig(length);
+  const promptOpts: PromptOptions = { ...opts, language: opts?.language ?? language };
+  const hosts = promptOpts.hosts ?? DEFAULT_HOSTS;
+  const cfg = getLengthConfig(length, customMinutes);
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -17,8 +19,8 @@ export async function generateScriptClaude(content: string, length: ScriptLength
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: cfg.maxTokens,
-      system: buildSystemPrompt(language),
-      messages: [{ role: "user", content: buildUserPrompt(content, length, language) }],
+      system: buildSystemPrompt(promptOpts),
+      messages: [{ role: "user", content: buildUserPrompt(content, length, promptOpts, customMinutes) }],
     }),
   });
 
@@ -31,7 +33,7 @@ export async function generateScriptClaude(content: string, length: ScriptLength
 
   const script: string = data?.content?.[0]?.text ?? "";
 
-  if (!script.includes("ALEX:") || !script.includes("SAM:")) {
+  if (!script.includes(`${hosts.a}:`) || !script.includes(`${hosts.b}:`)) {
     throw new Error("Claude returned invalid script format.");
   }
 

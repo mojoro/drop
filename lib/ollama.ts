@@ -3,8 +3,10 @@ import {
   buildUserPrompt,
   buildRepairPrompt,
   stripCodeFences,
+  DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
+  type PromptOptions,
 } from "@/lib/prompt";
 import { validatePodcastScript, extractValidLines } from "@/lib/featherless";
 
@@ -54,15 +56,17 @@ async function callOllama(
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptOllama(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
+export async function generateScriptOllama(content: string, length: ScriptLength = "short", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Ollama.");
   }
 
-  const systemPrompt = buildSystemPrompt(language);
-  const userPrompt = buildUserPrompt(cleanedContent, length, language);
+  const promptOpts: PromptOptions = { ...opts, language: opts?.language ?? language };
+  const hosts = promptOpts.hosts ?? DEFAULT_HOSTS;
+  const systemPrompt = buildSystemPrompt(promptOpts);
+  const userPrompt = buildUserPrompt(cleanedContent, length, promptOpts, customMinutes);
 
   try {
     const firstPass = await callOllama([
@@ -70,12 +74,12 @@ export async function generateScriptOllama(content: string, length: ScriptLength
       { role: "user", content: userPrompt },
     ]);
 
-    if (validatePodcastScript(firstPass, length)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
       return firstPass;
     }
 
     // First pass didn't fully validate — try extracting valid lines directly
-    const extracted = extractValidLines(firstPass);
+    const extracted = extractValidLines(firstPass, hosts.a, hosts.b);
     if (extracted.length >= 4) {
       console.warn(`Ollama: first pass had ${extracted.length} valid lines out of mixed output, using them`);
       return extracted.join("\n");
@@ -85,15 +89,15 @@ export async function generateScriptOllama(content: string, length: ScriptLength
 
     const repaired = await callOllama([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass, length, language) },
+      { role: "user", content: buildRepairPrompt(firstPass, length, promptOpts, customMinutes) },
     ]);
 
-    if (validatePodcastScript(repaired, length)) {
+    if (validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes)) {
       return repaired;
     }
 
     // Last resort: extract whatever valid lines we can
-    const repairedLines = extractValidLines(repaired);
+    const repairedLines = extractValidLines(repaired, hosts.a, hosts.b);
     if (repairedLines.length >= 4) {
       console.warn(`Ollama: repair had ${repairedLines.length} valid lines, using them`);
       return repairedLines.join("\n");

@@ -4,8 +4,10 @@ import {
   buildRepairPrompt,
   stripCodeFences,
   getLengthConfig,
+  DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
+  type PromptOptions,
 } from "@/lib/prompt";
 import { validatePodcastScript } from "@/lib/featherless";
 
@@ -63,6 +65,8 @@ export async function generateScriptOpenRouter(
   model?: string,
   length: ScriptLength = "short",
   language?: ScriptLanguage,
+  opts?: PromptOptions,
+  customMinutes?: number,
 ): Promise<string> {
   const key = apiKey || process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("Missing OpenRouter API key");
@@ -72,9 +76,11 @@ export async function generateScriptOpenRouter(
     throw new Error("No content was provided to OpenRouter.");
   }
 
-  const cfg = getLengthConfig(length);
-  const systemPrompt = buildSystemPrompt(language);
-  const userPrompt = buildUserPrompt(cleanedContent, length, language);
+  const promptOpts: PromptOptions = { ...opts, language: opts?.language ?? language };
+  const hosts = promptOpts.hosts ?? DEFAULT_HOSTS;
+  const cfg = getLengthConfig(length, customMinutes);
+  const systemPrompt = buildSystemPrompt(promptOpts);
+  const userPrompt = buildUserPrompt(cleanedContent, length, promptOpts, customMinutes);
 
   try {
     const firstPass = await callOpenRouter(
@@ -87,21 +93,21 @@ export async function generateScriptOpenRouter(
       cfg.maxTokens,
     );
 
-    if (validatePodcastScript(firstPass, length)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
       return firstPass;
     }
 
     const repaired = await callOpenRouter(
       [
         { role: "system", content: systemPrompt },
-        { role: "user", content: buildRepairPrompt(firstPass, length, language) },
+        { role: "user", content: buildRepairPrompt(firstPass, length, promptOpts, customMinutes) },
       ],
       key,
       model,
       cfg.maxTokens,
     );
 
-    if (!validatePodcastScript(repaired, length)) {
+    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes)) {
       throw new Error("OpenRouter returned invalid script format after retry.");
     }
 

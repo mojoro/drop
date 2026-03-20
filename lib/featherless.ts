@@ -4,8 +4,10 @@ import {
   buildRepairPrompt,
   stripCodeFences,
   getLengthConfig,
+  DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
+  type PromptOptions,
 } from "@/lib/prompt";
 
 const FEATHERLESS_API_URL = "https://api.featherless.ai/v1/chat/completions";
@@ -17,23 +19,23 @@ function errorMessage(error: unknown) {
   return "Unknown error";
 }
 
-/** Extract valid ALEX:/SAM: lines from raw model output. */
-export function extractValidLines(script: string): string[] {
+/** Extract valid host lines from raw model output. */
+export function extractValidLines(script: string, hostA = "ALEX", hostB = "SAM"): string[] {
+  const pattern = new RegExp(`^(${hostA}|${hostB}):\\s.+`, "i");
   return script
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => /^(ALEX|SAM):\s.+/i.test(line));
+    .filter((line) => pattern.test(line));
 }
 
-export function validatePodcastScript(script: string, length: ScriptLength = "short") {
-  const lines = extractValidLines(script);
-  const minLines = Math.max(4, getLengthConfig(length).lines[0] - 4);
+export function validatePodcastScript(script: string, length: ScriptLength = "short", hostA = "ALEX", hostB = "SAM", customMinutes?: number) {
+  const lines = extractValidLines(script, hostA, hostB);
+  const minLines = Math.max(4, getLengthConfig(length, customMinutes).lines[0] - 4);
   if (lines.length < minLines) return false;
 
-  const hasAlex = lines.some((line) => /^ALEX:/i.test(line));
-  const hasSam = lines.some((line) => /^SAM:/i.test(line));
-
-  return hasAlex && hasSam;
+  const patA = new RegExp(`^${hostA}:`, "i");
+  const patB = new RegExp(`^${hostB}:`, "i");
+  return lines.some((l) => patA.test(l)) && lines.some((l) => patB.test(l));
 }
 
 async function callFeatherless(messages: Array<{ role: "system" | "user"; content: string }>, maxTokens: number) {
@@ -75,16 +77,18 @@ async function callFeatherless(messages: Array<{ role: "system" | "user"; conten
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptFeatherless(content: string, length: ScriptLength = "short", language?: ScriptLanguage): Promise<string> {
+export async function generateScriptFeatherless(content: string, length: ScriptLength = "short", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
   const cleanedContent = content.trim().slice(0, 10000);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Featherless.");
   }
 
-  const cfg = getLengthConfig(length);
-  const systemPrompt = buildSystemPrompt(language);
-  const userPrompt = buildUserPrompt(cleanedContent, length, language);
+  const promptOpts: PromptOptions = { ...opts, language: opts?.language ?? language };
+  const hosts = promptOpts.hosts ?? DEFAULT_HOSTS;
+  const cfg = getLengthConfig(length, customMinutes);
+  const systemPrompt = buildSystemPrompt(promptOpts);
+  const userPrompt = buildUserPrompt(cleanedContent, length, promptOpts, customMinutes);
 
   try {
     const firstPass = await callFeatherless([
@@ -92,16 +96,16 @@ export async function generateScriptFeatherless(content: string, length: ScriptL
       { role: "user", content: userPrompt },
     ], cfg.maxTokens);
 
-    if (validatePodcastScript(firstPass, length)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
       return firstPass;
     }
 
     const repaired = await callFeatherless([
       { role: "system", content: systemPrompt },
-      { role: "user", content: buildRepairPrompt(firstPass, length, language) },
+      { role: "user", content: buildRepairPrompt(firstPass, length, promptOpts, customMinutes) },
     ], cfg.maxTokens);
 
-    if (!validatePodcastScript(repaired, length)) {
+    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes)) {
       throw new Error("Featherless returned invalid script format after retry.");
     }
 
