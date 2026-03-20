@@ -1,0 +1,13 @@
+[project]
+name = "drop-qwen-tts"
+version = "0.1.0"
+description = "Qwen3-TTS sidecar for Drop"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "qwen-tts>=0.1.0",
+    "scipy>=1.13.0",
+    "numpy>=2.0.0",
+    "torch>=2.3.0",
+]
