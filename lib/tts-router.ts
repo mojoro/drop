@@ -5,8 +5,9 @@ import { tmpdir } from "os";
 import { generateVoice as generateLocal, fetchVoices as fetchLocalVoices } from "./tts";
 import { generateVoice as generateElevenLabs, fetchVoices as fetchElevenLabsVoices, FALLBACK_VOICES as ELEVENLABS_FALLBACK, DEFAULT_ALEX_VOICE as EL_ALEX, DEFAULT_SAM_VOICE as EL_SAM } from "./tts-elevenlabs";
 import { generateVoice as generateOpenAI, OPENAI_VOICES, DEFAULT_ALEX_VOICE as OA_ALEX, DEFAULT_SAM_VOICE as OA_SAM } from "./tts-openai";
+import { generateVoice as generateQwen, fetchVoices as fetchQwenVoices, DEFAULT_ALEX_VOICE as QW_ALEX, DEFAULT_SAM_VOICE as QW_SAM } from "./tts-qwen";
 
-export type TtsBackend = "local" | "elevenlabs" | "openai";
+export type TtsBackend = "local" | "elevenlabs" | "openai" | "qwen";
 
 export type TtsConfig = {
   backend: TtsBackend;
@@ -48,6 +49,7 @@ export function getDefaultVoices(backend: TtsBackend): { alex: string; sam: stri
   switch (backend) {
     case "elevenlabs": return { alex: EL_ALEX, sam: EL_SAM };
     case "openai":     return { alex: OA_ALEX, sam: OA_SAM };
+    case "qwen":       return { alex: QW_ALEX, sam: QW_SAM };
     default:           return { alex: "alba", sam: "marius" };
   }
 }
@@ -69,6 +71,18 @@ export async function listVoices(config: TtsConfig): Promise<VoiceInfo[]> {
 
     case "openai":
       return OPENAI_VOICES.map(v => ({ id: v.id, name: v.name, type: "builtin" as const }));
+
+    case "qwen": {
+      try {
+        const voices = await fetchQwenVoices();
+        return [
+          ...voices.builtin.map(name => ({ id: name, name, type: "builtin" as const })),
+          ...voices.custom.map(name => ({ id: name, name, type: "custom" as const })),
+        ];
+      } catch {
+        return [];
+      }
+    }
 
     case "local":
     default: {
@@ -98,6 +112,9 @@ export async function synthesizeLine(text: string, voice: string, config: TtsCon
       if (!config.openaiKey) throw new Error("OpenAI API key not configured");
       return generateOpenAI(text, voice, config.openaiKey);
     }
+
+    case "qwen":
+      return generateQwen(text, voice, config.language);
 
     case "local":
     default:
