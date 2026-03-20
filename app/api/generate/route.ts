@@ -10,6 +10,7 @@ import { getProfile, type SettingsProfile } from "@/lib/storage";
 import { DEFAULT_HOSTS, type ScriptLength, type ScriptLanguage, type PromptOptions, type HostNames } from "@/lib/prompt";
 
 export const runtime = "nodejs";
+export const maxDuration = 7200; // 2 hours — supports very long unlimited generations
 
 type ScriptBackend = "ollama" | "openrouter" | "featherless" | "claude";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing input" }, { status: 400 });
   }
 
-  const length: ScriptLength = ["short", "medium", "long", "custom"].includes(body?.length) ? body.length : "short";
+  const length: ScriptLength = ["short", "medium", "long", "custom", "unlimited"].includes(body?.length) ? body.length : "short";
   const customMinutes: number | undefined = typeof body?.customMinutes === "number" ? body.customMinutes : undefined;
   const language: ScriptLanguage | undefined = typeof body?.language === "string" && body.language ? body.language : undefined;
   const hostNames: HostNames = {

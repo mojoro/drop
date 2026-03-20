@@ -1,4 +1,4 @@
-export type ScriptLength = "short" | "medium" | "long" | "custom";
+export type ScriptLength = "short" | "medium" | "long" | "custom" | "unlimited";
 export type ScriptLanguage = string; // e.g. "English", "German", "Japanese"
 
 export type HostNames = { a: string; b: string };
@@ -20,11 +20,14 @@ const LENGTH_PRESETS = {
 
 /** Interpolate length config from a target duration in minutes. */
 export function getLengthConfig(length: ScriptLength, customMinutes?: number) {
+  if (length === "unlimited") {
+    return { lines: [100, 99999] as [number, number], chars: [20000, 9999999] as [number, number], duration: "as long as needed", maxTokens: 128000 };
+  }
   if (length === "custom" && customMinutes && customMinutes > 0) {
-    const min = Math.max(0.5, Math.min(customMinutes, 30));
+    const min = Math.max(0.5, Math.min(customMinutes, 240));
     const lines: [number, number] = [Math.round(min * 8), Math.round(min * 10)];
     const chars: [number, number] = [Math.round(min * 1100), Math.round(min * 1500)];
-    const maxTokens = Math.round(min * 900);
+    const maxTokens = Math.min(Math.round(min * 900), 128000);
     return { lines, chars, duration: `${min} minutes`, maxTokens };
   }
   return LENGTH_PRESETS[length as keyof typeof LENGTH_PRESETS] || LENGTH_PRESETS.medium;
@@ -74,21 +77,23 @@ export function buildUserPrompt(content: string, length: ScriptLength = "short",
       .replace(/\{\{CHARS_MIN\}\}/g, String(cfg.chars[0]))
       .replace(/\{\{CHARS_MAX\}\}/g, String(cfg.chars[1]));
   }
+  const isUnlimited = length === "unlimited";
   if (monologue) {
     const langRule = language && language !== "English"
       ? `\n- Write ALL narration in ${language} (keep ${hosts.a}: prefix in English)`
       : "";
+    const lengthRule = isUnlimited
+      ? "- Cover the source material as thoroughly as possible — no length limit"
+      : `- ${cfg.lines[0]} to ${cfg.lines[1]} total lines\n- Target roughly ${cfg.duration} spoken duration\n- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters`;
     return `
 Write an engaging solo podcast narration based on the source below.
 
 Rules:
 - Single narrator: ${hosts.a} only
 - ${hosts.a} is an engaging, insightful storyteller who speaks directly to the listener
-- ${cfg.lines[0]} to ${cfg.lines[1]} total lines
+${lengthRule}
 - Every line must start with ${hosts.a}:
-- End with a memorable takeaway
-- Target roughly ${cfg.duration} spoken duration
-- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters${langRule}
+- End with a memorable takeaway${langRule}
 
 Source:
 ${content.trim().slice(0, 10000)}
@@ -97,6 +102,9 @@ ${content.trim().slice(0, 10000)}
   const langRule = language && language !== "English"
     ? `\n- Write ALL dialogue lines in ${language} (keep ${hosts.a}: and ${hosts.b}: prefixes in English)`
     : "";
+  const lengthRule = isUnlimited
+    ? "- Cover the source material as thoroughly as possible — no length limit"
+    : `- ${cfg.lines[0]} to ${cfg.lines[1]} total lines\n- Target roughly ${cfg.duration} spoken duration\n- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters`;
   return `
 Write a sharp podcast dialogue based on the source below.
 
@@ -104,11 +112,9 @@ Rules:
 - Two hosts only: ${hosts.a} and ${hosts.b}
 - ${hosts.a} is curious, conversational, and asks sharp questions
 - ${hosts.b} is direct, insightful, and gives no-fluff answers
-- ${cfg.lines[0]} to ${cfg.lines[1]} total lines
+${lengthRule}
 - Every line must start with ${hosts.a}: or ${hosts.b}:
-- End with a memorable one-line takeaway from ${hosts.b}
-- Target roughly ${cfg.duration} spoken duration
-- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters${langRule}
+- End with a memorable one-line takeaway from ${hosts.b}${langRule}
 
 Source:
 ${content.trim().slice(0, 10000)}
