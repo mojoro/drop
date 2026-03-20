@@ -5,8 +5,8 @@ import type { ServerStatus } from './types'
 export interface ToolbarProps {
   ttsOnline: boolean | null
   ttsBackend: 'local' | 'elevenlabs' | 'openai'
-  scriptLength: 'short' | 'medium' | 'long' | 'custom'
-  onScriptLengthChange: (len: 'short' | 'medium' | 'long' | 'custom') => void
+  scriptLength: 'short' | 'medium' | 'long' | 'custom' | 'unlimited'
+  onScriptLengthChange: (len: 'short' | 'medium' | 'long' | 'custom' | 'unlimited') => void
   customMinutes: number
   onCustomMinutesChange: (m: number) => void
   llmBackend: 'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'
@@ -59,10 +59,11 @@ export function Toolbar({
 
       {/* Length selector */}
       <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2, alignItems: 'center' }}>
-        {(['short', 'medium', 'long', 'custom'] as const).map(len => (
+        {(['short', 'medium', 'long', 'custom', 'unlimited'] as const).map(len => (
           <button
             key={len}
             onClick={() => onScriptLengthChange(len)}
+            title={len === 'unlimited' ? 'No token limit — generation may take a very long time' : undefined}
             style={{
               padding: '4px 10px', borderRadius: 6, fontSize: 9,
               fontWeight: scriptLength === len ? 700 : 400,
@@ -73,16 +74,16 @@ export function Toolbar({
               color: scriptLength === len ? '#000' : 'var(--muted)',
             }}
           >
-            {len === 'short' ? '1m' : len === 'medium' ? '3m' : len === 'long' ? '7m' : `${customMinutes}m`}
+            {len === 'short' ? '1m' : len === 'medium' ? '3m' : len === 'long' ? '7m' : len === 'unlimited' ? '\u221E' : `${customMinutes}m`}
           </button>
         ))}
         {scriptLength === 'custom' && (
           <input
             type="number"
             min={1}
-            max={30}
+            max={240}
             value={customMinutes}
-            onChange={e => onCustomMinutesChange(Math.max(1, Math.min(30, parseInt(e.target.value) || 1)))}
+            onChange={e => onCustomMinutesChange(Math.max(1, Math.min(240, parseInt(e.target.value) || 1)))}
             style={{
               width: 36, padding: '2px 4px', borderRadius: 4, fontSize: 9,
               fontFamily: 'inherit', fontWeight: 600,
