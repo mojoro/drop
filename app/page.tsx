@@ -42,6 +42,7 @@ export default function Home() {
   const [llmBackend, setLlmBackend] = useState<'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'>('auto')
   const [hostA, setHostA] = useState('ALEX')
   const [hostB, setHostB] = useState('SAM')
+  const [monologue, setMonologue] = useState(false)
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
   const [ttsBackend, setTtsBackend] = useState<'local' | 'elevenlabs' | 'openai'>('local')
@@ -390,7 +391,7 @@ export default function Home() {
         body: JSON.stringify({
           input: input.trim(), alexVoice, samVoice, profile: activeProfile,
           length: scriptLength, customMinutes: scriptLength === 'custom' ? customMinutes : undefined,
-          language, ttsBackend, llmBackend, hostA, hostB,
+          language, ttsBackend, llmBackend, hostA, hostB, monologue,
           customSystemPrompt: customSystemPrompt || undefined,
           customUserPrompt: customUserPrompt || undefined,
           llmOrder,
@@ -661,7 +662,7 @@ export default function Home() {
             {ttsBackend === 'local' ? 'POCKET-TTS' : ttsBackend === 'elevenlabs' ? 'ELEVENLABS' : 'OPENAI'}
           </span>
           <VoiceSelect label={hostA} color="var(--alex)" voices={voices} selected={alexVoice} onSelect={setAlexVoice} />
-          <VoiceSelect label={hostB} color="var(--sam)" voices={voices} selected={samVoice} onSelect={setSamVoice} />
+          {!monologue && <VoiceSelect label={hostB} color="var(--sam)" voices={voices} selected={samVoice} onSelect={setSamVoice} />}
 
           <button
             onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
@@ -856,9 +857,27 @@ export default function Home() {
 
       {/* ── Host names + warnings ── */}
       <div style={{ width: '100%', maxWidth: 640, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {/* Host name config */}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 8, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted2)' }}>HOSTS</span>
+        {/* Mode + host name config */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Dialogue / Monologue toggle */}
+          <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 6, padding: 2 }}>
+            {(['dialogue', 'monologue'] as const).map(mode => (
+              <button
+                key={mode}
+                onClick={() => setMonologue(mode === 'monologue')}
+                style={{
+                  padding: '3px 8px', borderRadius: 4, fontSize: 8,
+                  fontWeight: (monologue ? mode === 'monologue' : mode === 'dialogue') ? 700 : 400,
+                  fontFamily: 'inherit', cursor: 'pointer', border: 'none',
+                  letterSpacing: '0.08em', transition: 'all 0.15s',
+                  background: (monologue ? mode === 'monologue' : mode === 'dialogue') ? 'var(--accent)' : 'transparent',
+                  color: (monologue ? mode === 'monologue' : mode === 'dialogue') ? '#000' : 'var(--muted)',
+                }}
+              >
+                {mode.toUpperCase()}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             value={hostA}
@@ -870,18 +889,22 @@ export default function Home() {
               color: 'var(--alex)', textAlign: 'center', outline: 'none',
             }}
           />
-          <span style={{ fontSize: 9, color: 'var(--muted2)' }}>{'\u00D7'}</span>
-          <input
-            type="text"
-            value={hostB}
-            onChange={e => setHostB(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
-            style={{
-              width: 80, padding: '3px 8px', borderRadius: 6, fontSize: 10,
-              fontFamily: 'inherit', fontWeight: 700, letterSpacing: '0.08em',
-              background: 'transparent', border: '1px solid var(--border2)',
-              color: 'var(--sam)', textAlign: 'center', outline: 'none',
-            }}
-          />
+          {!monologue && (
+            <>
+              <span style={{ fontSize: 9, color: 'var(--muted2)' }}>{'\u00D7'}</span>
+              <input
+                type="text"
+                value={hostB}
+                onChange={e => setHostB(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12))}
+                style={{
+                  width: 80, padding: '3px 8px', borderRadius: 6, fontSize: 10,
+                  fontFamily: 'inherit', fontWeight: 700, letterSpacing: '0.08em',
+                  background: 'transparent', border: '1px solid var(--border2)',
+                  color: 'var(--sam)', textAlign: 'center', outline: 'none',
+                }}
+              />
+            </>
+          )}
         </div>
 
         {/* LLM backend warning */}
