@@ -70,16 +70,16 @@ User input (URL or topic)
 
 User selects LLM backend (auto/ollama/openrouter/featherless/claude) and TTS backend (local/elevenlabs/openai) from the toolbar. Auto mode cascades through configured backends.
 
-**Script format** — all generation and parsing depends on:
+**Script format** — host names are configurable (default ALEX/SAM):
 ```
-ALEX: <line text>
-SAM: <line text>
+HOST_A: <line text>
+HOST_B: <line text>
 ```
-`lib/script.ts` parses (skips invalid lines gracefully). `lib/featherless.ts` exports `validatePodcastScript` and `extractValidLines`. `lib/prompt.ts` has the prompts with length/language support and strips `<think>` tags.
+`lib/script.ts` parses dynamically based on configured host names. `lib/featherless.ts` exports `validatePodcastScript` and `extractValidLines`. `lib/prompt.ts` has the prompts with length/language/host name support and strips `<think>` tags. Custom prompts can be provided from the UI via `PromptOptions.customSystemPrompt`/`customUserPrompt` with template variables like `{{SOURCE}}`, `{{HOST_A}}`, `{{HOST_B}}`, `{{LANGUAGE}}`, `{{LINES_MIN}}`, etc.
 
 ## Key Modules
 
-- `lib/prompt.ts` — system/user/repair prompts, length configs (short/medium/long), multilanguage
+- `lib/prompt.ts` — system/user/repair prompts, length configs (short/medium/long/custom), multilanguage, configurable host names, custom prompt overrides
 - `lib/tts-router.ts` — TTS backend dispatch + MP3→WAV conversion
 - `lib/storage.ts` — file-based storage for podcasts (`data/podcasts/`) and AES-256-GCM encrypted settings profiles (`data/settings/`)
 - `lib/scrape.ts` — built-in content extraction, optional Needle fallback
@@ -88,7 +88,7 @@ SAM: <line text>
 
 | Route | Method | Purpose |
 |-------|--------|---------|
-| `/api/generate` | POST | Full pipeline: scrape → script → TTS → stitch |
+| `/api/generate` | POST | Full pipeline via SSE stream: scrape → script → TTS → stitch |
 | `/api/synthesize` | POST | TTS-only from existing script (re-voice) |
 | `/api/voices` | GET | List voices for selected TTS backend |
 | `/api/library` | GET/POST | List/save podcasts |
@@ -101,24 +101,37 @@ SAM: <line text>
 
 ## Route Structure
 
-- `/` → redirects to `/demo` (see `next.config.ts`)
+- `/` → main generation UI (`app/page.tsx`)
 - `/demo` → static demo page, pre-baked audio, no API calls
-- `app/page.tsx` — main generation UI (reached directly at `/`)
 - `app/for-chris/page.tsx` — standalone portfolio page
 
-## UI State (app/page.tsx)
+## Components (components/)
 
-Single-page app with these major sections:
+UI is extracted into reusable components:
+- `types.ts` — shared types (Voice, Stage, ScriptLine, Result, SavedPodcast, etc.)
+- `PipelineViz.tsx` — 3-stage pipeline progress visualization
+- `VoiceSelect.tsx` — voice dropdown with builtin/custom groups
+- `ActionButton.tsx` — reusable hover-styled button
+- `SettingsInput.tsx` — text/password input with show/hide toggle
+- `SettingsPanel.tsx` — profiles, env status, create profile form
+- `LibraryPanel.tsx` — saved podcasts with load/play/delete
+- `PromptPanel.tsx` — custom prompt editor + LLM cascade order config
+- `Toolbar.tsx` — bottom toolbar (length, LLM, language, TTS backend, generate)
+- `ResultsSection.tsx` — audio player, save/download, transcript
+
+## UI Features (app/page.tsx)
+
 - Settings panel: encrypted profiles, backend status indicators
 - Library panel: saved podcasts with load/play/delete
-- Input card: textarea (URL, topic, or paste ALEX:/SAM: transcript)
-- Voice selection: dropdowns per backend, clone for local
-- Toolbar: length (~1m/~3m/~7m), LLM selector, language (15 langs), TTS backend (local/11labs/openai)
-- Results: audio player → save/download row → action buttons (re-voice/regenerate/copy) → transcript
+- Prompt panel: editable system/user prompts with template variables, configurable LLM fallback order
+- Input card: textarea (URL, topic, or paste transcript), voice selection per TTS backend
+- Voice management: clone for local (pocket-tts), add voice ID for ElevenLabs/OpenAI
+- Host names: configurable (default ALEX/SAM), used in prompts, parsing, and transcript
+- Toolbar: length (1m/3m/7m/custom), LLM selector with API key warnings, language (disabled for pocket-tts), TTS backend
+- Results: audio player → save/download row → re-voice/copy → transcript with per-line progress
+- SSE streaming: real-time stage updates + TTS progress bar during generation
 
 ## Known Issues / TODO
 
-- **UI polish needed**: page.tsx is ~1400 lines of inline styles. Needs component extraction, proper CSS, and mobile testing.
-- The `next.config.ts` redirect from `/` to `/demo` means the generation UI is only at the root when accessed directly — this is confusing.
-- ElevenLabs voices list is hardcoded in `lib/tts-elevenlabs.ts` — could fetch from their API.
-- No streaming for generation progress — the pipeline runs synchronously and returns all at once.
+- pocket-tts is English-only — non-English requires ElevenLabs or OpenAI TTS
+- demo page (`app/demo/page.tsx`) duplicates some components from the main UI
