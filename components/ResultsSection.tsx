@@ -14,6 +14,7 @@ export interface ResultsSectionProps {
   saveTitle: string
   onSaveTitleChange: (title: string) => void
   saving: boolean
+  saved?: boolean
   onSavePodcast: () => void
   onDownloadMp3: () => void
   onResynthesize: () => void
@@ -22,8 +23,8 @@ export interface ResultsSectionProps {
 
 export function ResultsSection({
   result, alexVoice, samVoice, hostA, hostB, busy,
-  saveTitle, onSaveTitleChange, saving, onSavePodcast,
-  onDownloadMp3, onResynthesize, onCopyScript,
+  saveTitle, onSaveTitleChange, saving, saved,
+  onSavePodcast, onDownloadMp3, onResynthesize, onCopyScript,
 }: ResultsSectionProps) {
   return (
     <div className="animate-slide-up" style={{ width: '100%', maxWidth: 640, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -49,32 +50,40 @@ export function ResultsSection({
           background: 'var(--card)', border: '1px solid var(--border)',
           display: 'flex', gap: 8, alignItems: 'center',
         }}>
-          <input
-            type="text"
-            placeholder="episode title"
-            value={saveTitle}
-            onChange={e => onSaveTitleChange(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') onSavePodcast() }}
-            style={{
-              flex: 1, padding: '7px 10px', borderRadius: 8,
-              background: 'var(--card2)', border: '1px solid var(--border2)',
-              color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none',
-            }}
-          />
-          <button
-            onClick={onSavePodcast}
-            disabled={saving || !saveTitle.trim()}
-            style={{
-              padding: '7px 16px', borderRadius: 8, fontSize: 10,
-              fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
-              cursor: saving || !saveTitle.trim() ? 'not-allowed' : 'pointer',
-              border: 'none', transition: 'all 0.15s',
-              background: saving || !saveTitle.trim() ? 'var(--card2)' : 'var(--green)',
-              color: saving || !saveTitle.trim() ? 'var(--muted)' : '#000',
-            }}
-          >
-            {saving ? '...' : 'SAVE'}
-          </button>
+          {saved ? (
+            <span style={{ flex: 1, fontSize: 10, color: 'var(--green)', letterSpacing: '0.1em' }}>
+              {'\u2713'} SAVED — {saveTitle}
+            </span>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="episode title"
+                value={saveTitle}
+                onChange={e => onSaveTitleChange(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') onSavePodcast() }}
+                style={{
+                  flex: 1, padding: '7px 10px', borderRadius: 8,
+                  background: 'var(--card2)', border: '1px solid var(--border2)',
+                  color: 'var(--text)', fontSize: 11, fontFamily: 'inherit', outline: 'none',
+                }}
+              />
+              <button
+                onClick={onSavePodcast}
+                disabled={saving || !saveTitle.trim()}
+                style={{
+                  padding: '7px 16px', borderRadius: 8, fontSize: 10,
+                  fontWeight: 700, letterSpacing: '0.08em', fontFamily: 'inherit',
+                  cursor: saving || !saveTitle.trim() ? 'not-allowed' : 'pointer',
+                  border: 'none', transition: 'all 0.15s',
+                  background: saving || !saveTitle.trim() ? 'var(--card2)' : 'var(--green)',
+                  color: saving || !saveTitle.trim() ? 'var(--muted)' : '#000',
+                }}
+              >
+                {saving ? '...' : 'SAVE'}
+              </button>
+            </>
+          )}
           <ActionButton onClick={onDownloadMp3} disabled={false} label="MP3 \u2193" hint="download as MP3" />
         </div>
       )}

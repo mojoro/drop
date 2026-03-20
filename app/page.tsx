@@ -62,6 +62,7 @@ export default function Home() {
   const [profiles,     setProfiles]     = useState<MaskedProfile[]>([])
   const [saveTitle,    setSaveTitle]    = useState('')
   const [saving,       setSaving]       = useState(false)
+  const [savedToLibrary, setSavedToLibrary] = useState(false)
   const [ttsProgress, setTtsProgress] = useState<{ current: number; total: number } | null>(null)
   const [showPrompt, setShowPrompt] = useState(false)
   const [customSystemPrompt, setCustomSystemPrompt] = useState('')
@@ -173,6 +174,40 @@ export default function Home() {
     refreshVoices(backend)
   }
 
+  function deriveTitle(src: string): string {
+    const s = src.trim()
+    try { return new URL(s).hostname.replace(/^www\./, '') } catch { /* not a URL */ }
+    if (s.length <= 60) return s
+    const cut = s.slice(0, 60)
+    const lastSpace = cut.lastIndexOf(' ')
+    return lastSpace > 20 ? cut.slice(0, lastSpace) : cut
+  }
+
+  async function autoSave(finalResult: Result, title: string) {
+    if (!finalResult.audio) return
+    setSaving(true)
+    try {
+      await fetch('/api/library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          input,
+          scriptLines: finalResult.scriptLines,
+          scriptBackend: finalResult.scriptBackend,
+          alexVoice, samVoice,
+          audio: finalResult.audio,
+        }),
+      })
+      setSavedToLibrary(true)
+      refreshLibrary()
+    } catch {
+      // silent — user can still save manually
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleSavePodcast() {
     if (!result?.audio || !saveTitle.trim() || saving) return
     setSaving(true)
@@ -190,6 +225,7 @@ export default function Home() {
         }),
       })
       setSaveTitle('')
+      setSavedToLibrary(true)
       refreshLibrary()
     } catch {
       // silent
@@ -345,6 +381,7 @@ export default function Home() {
     setStage('extracting')
     setResult(null)
     setError(null)
+    setSavedToLibrary(false)
     try {
       setTtsProgress(null)
       const res = await fetch('/api/generate', {
@@ -394,9 +431,13 @@ export default function Home() {
             if (event.progress) setTtsProgress(event.progress)
           }
           else if (event.stage === 'done') {
-            setResult({ scriptLines: event.scriptLines, audio: event.audio, scriptBackend: event.scriptBackend })
+            const finalResult = { scriptLines: event.scriptLines, audio: event.audio, scriptBackend: event.scriptBackend }
+            setResult(finalResult)
             setStage('done')
             setTtsProgress(null)
+            const title = deriveTitle(input)
+            setSaveTitle(title)
+            autoSave(finalResult, title)
           }
           else if (event.stage === 'error') {
             throw new Error(event.error)
@@ -957,6 +998,7 @@ export default function Home() {
           saveTitle={saveTitle}
           onSaveTitleChange={setSaveTitle}
           saving={saving}
+          saved={savedToLibrary}
           onSavePodcast={handleSavePodcast}
           onDownloadMp3={handleDownloadMp3}
           onResynthesize={handleResynthesize}
