@@ -10,7 +10,7 @@ export type AppDefaults = {
   customMinutes: number;
   llmBackend: "auto" | "ollama" | "openrouter" | "featherless" | "claude";
   llmOrder: ("ollama" | "openrouter" | "featherless" | "claude")[];
-  ttsBackend: "local" | "elevenlabs" | "openai";
+  ttsBackend: "local" | "elevenlabs" | "openai" | "qwen";
   monologue: boolean;
   customSystemPrompt: string;
   customUserPrompt: string;

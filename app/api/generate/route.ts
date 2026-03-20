@@ -52,8 +52,8 @@ export async function POST(req: Request) {
   }
 
   // Resolve TTS backend and config
-  const ttsBackend: TtsBackend = (["local", "elevenlabs", "openai"].includes(body?.ttsBackend) ? body.ttsBackend
-    : profile?.ttsBackend && ["local", "elevenlabs", "openai"].includes(profile.ttsBackend) ? profile.ttsBackend
+  const ttsBackend: TtsBackend = (["local", "elevenlabs", "openai", "qwen"].includes(body?.ttsBackend) ? body.ttsBackend
+    : profile?.ttsBackend && ["local", "elevenlabs", "openai", "qwen"].includes(profile.ttsBackend) ? profile.ttsBackend
     : "local") as TtsBackend;
 
   const ttsConfig: TtsConfig = {

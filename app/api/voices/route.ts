@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     if (profileName) {
       const profile = await getProfile(profileName);
       if (profile) {
-        if (profile.ttsBackend && ["local", "elevenlabs", "openai"].includes(profile.ttsBackend)) {
+        if (profile.ttsBackend && ["local", "elevenlabs", "openai", "qwen"].includes(profile.ttsBackend)) {
           ttsBackend = profile.ttsBackend as TtsBackend;
         }
         elevenlabsKey = profile.elevenlabsKey || elevenlabsKey;
@@ -23,7 +23,7 @@ export async function GET(req: Request) {
       }
     }
 
-    if (["local", "elevenlabs", "openai"].includes(backendParam)) {
+    if (["local", "elevenlabs", "openai", "qwen"].includes(backendParam)) {
       ttsBackend = backendParam as TtsBackend;
     }
 

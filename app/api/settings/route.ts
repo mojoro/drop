@@ -16,6 +16,7 @@ export async function GET() {
     needle: !!process.env.NEEDLE_API_KEY,
     elevenlabs: !!process.env.ELEVENLABS_API_KEY,
     openaiTts: !!process.env.OPENAI_API_KEY,
+    qwenTts: !!process.env.QWEN_TTS_SERVER_URL,
     config,
   });
 }
