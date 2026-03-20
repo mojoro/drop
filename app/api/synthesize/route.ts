@@ -28,19 +28,23 @@ export async function POST(req: Request) {
       : profile?.ttsBackend && ["local", "elevenlabs", "openai"].includes(profile.ttsBackend) ? profile.ttsBackend
       : "local") as TtsBackend;
 
+    const language = typeof body?.language === "string" ? body.language : undefined;
+
     const ttsConfig: TtsConfig = {
       backend: ttsBackend,
       elevenlabsKey: profile?.elevenlabsKey || process.env.ELEVENLABS_API_KEY || "",
       openaiKey: profile?.openaiKey || process.env.OPENAI_API_KEY || "",
+      language,
     };
 
+    const hostA = (typeof body?.hostA === "string" && body.hostA.trim() ? body.hostA.trim().toUpperCase() : "ALEX");
     const defaults = getDefaultVoices(ttsBackend);
     const aVoice = typeof body?.alexVoice === "string" ? body.alexVoice : defaults.alex;
     const sVoice = typeof body?.samVoice === "string" ? body.samVoice : defaults.sam;
 
     const buffers: ArrayBuffer[] = [];
     for (const line of scriptLines) {
-      const voice = line.speaker === "ALEX" ? aVoice : sVoice;
+      const voice = line.speaker === hostA ? aVoice : sVoice;
       const buf = await synthesizeLine(line.text, voice, ttsConfig);
       buffers.push(buf);
     }
