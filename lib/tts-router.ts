@@ -3,7 +3,7 @@ import { writeFile, readFile, unlink, mkdtemp } from "fs/promises";
 import { join } from "path";
 import { tmpdir } from "os";
 import { generateVoice as generateLocal, fetchVoices as fetchLocalVoices } from "./tts";
-import { generateVoice as generateElevenLabs, ELEVENLABS_VOICES, DEFAULT_ALEX_VOICE as EL_ALEX, DEFAULT_SAM_VOICE as EL_SAM } from "./tts-elevenlabs";
+import { generateVoice as generateElevenLabs, fetchVoices as fetchElevenLabsVoices, FALLBACK_VOICES as ELEVENLABS_FALLBACK, DEFAULT_ALEX_VOICE as EL_ALEX, DEFAULT_SAM_VOICE as EL_SAM } from "./tts-elevenlabs";
 import { generateVoice as generateOpenAI, OPENAI_VOICES, DEFAULT_ALEX_VOICE as OA_ALEX, DEFAULT_SAM_VOICE as OA_SAM } from "./tts-openai";
 
 export type TtsBackend = "local" | "elevenlabs" | "openai";
@@ -12,6 +12,7 @@ export type TtsConfig = {
   backend: TtsBackend;
   elevenlabsKey?: string;
   openaiKey?: string;
+  language?: string;
 };
 
 export type VoiceInfo = {
@@ -54,8 +55,17 @@ export function getDefaultVoices(backend: TtsBackend): { alex: string; sam: stri
 /** List available voices for a TTS backend. */
 export async function listVoices(config: TtsConfig): Promise<VoiceInfo[]> {
   switch (config.backend) {
-    case "elevenlabs":
-      return ELEVENLABS_VOICES.map(v => ({ id: v.id, name: v.name, type: "builtin" as const }));
+    case "elevenlabs": {
+      let voices = ELEVENLABS_FALLBACK;
+      if (config.elevenlabsKey) {
+        try {
+          voices = await fetchElevenLabsVoices(config.elevenlabsKey);
+        } catch {
+          // API call failed — use fallback list
+        }
+      }
+      return voices.map(v => ({ id: v.id, name: v.name, type: "builtin" as const }));
+    }
 
     case "openai":
       return OPENAI_VOICES.map(v => ({ id: v.id, name: v.name, type: "builtin" as const }));
@@ -80,7 +90,7 @@ export async function synthesizeLine(text: string, voice: string, config: TtsCon
   switch (config.backend) {
     case "elevenlabs": {
       if (!config.elevenlabsKey) throw new Error("ElevenLabs API key not configured");
-      const mp3 = await generateElevenLabs(text, voice, config.elevenlabsKey);
+      const mp3 = await generateElevenLabs(text, voice, config.elevenlabsKey, config.language);
       return mp3ToWav(mp3);
     }
 
@@ -91,6 +101,6 @@ export async function synthesizeLine(text: string, voice: string, config: TtsCon
 
     case "local":
     default:
-      return generateLocal(text, voice);
+      return generateLocal(text, voice, config.language);
   }
 }

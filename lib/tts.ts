@@ -26,11 +26,11 @@ export async function cloneVoice(name: string, file: File): Promise<{ voice: str
   return res.json();
 }
 
-export async function generateVoice(text: string, voice: string): Promise<ArrayBuffer> {
+export async function generateVoice(text: string, voice: string, language?: string): Promise<ArrayBuffer> {
   const res = await fetch(`${TTS_URL}/tts/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text, voice }),
+    body: JSON.stringify({ text, voice, language }),
   });
   if (!res.ok) {
     const msg = await res.text().catch(() => `HTTP ${res.status}`);

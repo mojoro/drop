@@ -63,6 +63,7 @@ def get_voice_state(voice: str):
 class GenerateRequest(BaseModel):
     text: str
     voice: str = "alba"
+    language: str | None = None
 
 
 @app.get("/tts/voices")
@@ -78,6 +79,8 @@ def list_voices():
 def generate(req: GenerateRequest):
     m = get_model()
     state = get_voice_state(req.voice)
+    # pocket_tts does not support language control — it uses English phonemes.
+    # Non-English text will be spoken but with English pronunciation.
     audio = m.generate_audio(state, req.text)
 
     buf = io.BytesIO()
