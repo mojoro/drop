@@ -104,6 +104,9 @@ select {
 audio {
   filter: invert(1) hue-rotate(180deg);
   border-radius: 4px;
+}
+
+audio.audio-full {
   width: 100%;
 }
 
@@ -127,19 +130,12 @@ audio {
   .voice-panel { flex-direction: column !important; }
 }
 
-/* Mobile: wrap toolbar controls */
-@media (max-width: 560px) {
-  .bottom-toolbar {
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-  }
-  .bottom-toolbar > * {
-    flex-shrink: 0;
-  }
-  .toolbar-controls {
-    width: 100% !important;
-    justify-content: flex-end !important;
-  }
+/* Toolbar always wraps gracefully */
+.bottom-toolbar {
+  flex-wrap: wrap !important;
+}
+.toolbar-controls {
+  margin-left: auto;
 }
 
 /* Skeleton pulse animation */
