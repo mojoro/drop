@@ -1,5 +1,7 @@
 import io
+import logging
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import numpy as np
@@ -11,7 +13,19 @@ from pydantic import BaseModel
 
 from pocket_tts import TTSModel
 
-app = FastAPI(title="Drop TTS Server")
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(message)s")
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Loading TTS model — first run downloads ~400 MB, please wait...")
+    get_model()
+    logger.info("TTS model ready.")
+    yield
+
+
+app = FastAPI(title="Drop TTS Server", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
