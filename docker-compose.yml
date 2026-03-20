@@ -7,6 +7,7 @@ services:
       - .env.local
     environment:
       - TTS_SERVER_URL=http://tts:8000
+      - QWEN_TTS_SERVER_URL=http://qwen-tts:8001
     volumes:
       - ./data:/app/data
     depends_on:
@@ -25,3 +26,32 @@ services:
       timeout: 5s
       retries: 5
       start_period: 120s
+
+  # Qwen3-TTS sidecar — GPU-accelerated, opt-in.
+  # Requires NVIDIA Container Toolkit on the host for GPU passthrough.
+  # Start with: docker compose --profile qwen up
+  qwen-tts:
+    profiles: ["qwen"]
+    build: ./qwen-tts-server
+    ports:
+      - "8001:8001"
+    environment:
+      - QWEN_MODEL=Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice
+    volumes:
+      - huggingface_cache:/root/.cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 180s
+
+volumes:
+  huggingface_cache:
