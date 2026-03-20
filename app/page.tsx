@@ -45,7 +45,7 @@ export default function Home() {
   const [monologue, setMonologue] = useState(false)
   const [samVoice,   setSamVoice]   = useState('marius')
   const [voices,     setVoices]     = useState<Voice[]>(FALLBACK_VOICES)
-  const [ttsBackend, setTtsBackend] = useState<'local' | 'elevenlabs' | 'openai'>('local')
+  const [ttsBackend, setTtsBackend] = useState<'local' | 'elevenlabs' | 'openai' | 'qwen'>('local')
   const [ttsOnline,  setTtsOnline]  = useState<boolean | null>(null)
   const [showClone,  setShowClone]  = useState(false)
   const [cloneName,  setCloneName]  = useState('')
@@ -81,7 +81,7 @@ export default function Home() {
   const abortRef       = useRef<AbortController | null>(null)
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
-  const ttsReady = ttsBackend !== 'local' || ttsOnline !== false
+  const ttsReady = (ttsBackend !== 'local' && ttsBackend !== 'qwen') || ttsOnline !== false
 
   // ── WAV encoder (client-side, mono 16-bit PCM) ────────────────────────────
   function encodeWav(buf: AudioBuffer): File {
@@ -185,9 +185,9 @@ export default function Home() {
     saveActiveProfile(name)
   }
 
-  function switchTtsBackend(backend: 'local' | 'elevenlabs' | 'openai') {
+  function switchTtsBackend(backend: 'local' | 'elevenlabs' | 'openai' | 'qwen') {
     setTtsBackend(backend)
-    if (backend === 'local') setLanguage('English')
+    if (backend === 'local' || backend === 'qwen') setLanguage('English')
     refreshVoices(backend)
   }
 
@@ -939,7 +939,7 @@ export default function Home() {
         {/* Language restriction notice */}
         {ttsBackend === 'local' && language !== 'English' && (
           <div style={{ fontSize: 10, color: 'var(--muted)', padding: '4px 0' }}>
-            pocket-tts only supports English pronunciation. Switch to 11Labs or OpenAI for {language} TTS.
+            pocket-tts only supports English pronunciation. Switch to QWEN3, 11LABS, or OPENAI for {language} TTS.
           </div>
         )}
       </div>
@@ -973,7 +973,7 @@ export default function Home() {
       )}
 
       {/* ── TTS offline hint ── */}
-      {ttsBackend === 'local' && ttsOnline === false && stage === 'idle' && !result && (
+      {(ttsBackend === 'local' || ttsBackend === 'qwen') && ttsOnline === false && stage === 'idle' && !result && (
         <div
           className="animate-slide-up"
           style={{
@@ -984,9 +984,11 @@ export default function Home() {
             color: 'var(--muted)', fontSize: 11, lineHeight: 1.6,
           }}
         >
-          TTS sidecar not detected. Start it with:
+          {ttsBackend === 'qwen' ? 'Qwen3-TTS sidecar not detected. Start it with:' : 'TTS sidecar not detected. Start it with:'}
           <code style={{ display: 'block', marginTop: 6, padding: '6px 10px', borderRadius: 6, background: 'var(--card2)', color: 'var(--text)', fontSize: 10 }}>
-            cd tts-server && uv run uvicorn main:app
+            {ttsBackend === 'qwen'
+              ? 'cd qwen-tts-server && uv run uvicorn main:app --port 8001'
+              : 'cd tts-server && uv run uvicorn main:app'}
           </code>
         </div>
       )}

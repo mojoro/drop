@@ -4,7 +4,7 @@ import type { ServerStatus } from './types'
 
 export interface ToolbarProps {
   ttsOnline: boolean | null
-  ttsBackend: 'local' | 'elevenlabs' | 'openai'
+  ttsBackend: 'local' | 'elevenlabs' | 'openai' | 'qwen'
   scriptLength: 'short' | 'medium' | 'long' | 'custom' | 'unlimited'
   onScriptLengthChange: (len: 'short' | 'medium' | 'long' | 'custom' | 'unlimited') => void
   customMinutes: number
@@ -14,7 +14,7 @@ export interface ToolbarProps {
   serverStatus: ServerStatus | null
   language: string
   onLanguageChange: (lang: string) => void
-  onSwitchTtsBackend: (b: 'local' | 'elevenlabs' | 'openai') => void
+  onSwitchTtsBackend: (b: 'local' | 'elevenlabs' | 'openai' | 'qwen') => void
   busy: boolean
   ttsReady: boolean
   input: string
@@ -32,6 +32,7 @@ export function Toolbar({
   busy, ttsReady, input, inputLooksLikeTranscript,
   onCancel, onVoiceTranscript, onGenerate,
 }: ToolbarProps) {
+  const isLocalSidecar = ttsBackend === 'local' || ttsBackend === 'qwen'
   return (
     <div className="bottom-toolbar" style={{
       display: 'flex', alignItems: 'center',
@@ -121,15 +122,19 @@ export function Toolbar({
       <select
         value={language}
         onChange={e => onLanguageChange(e.target.value)}
-        disabled={ttsBackend === 'local'}
-        title={ttsBackend === 'local' ? 'pocket-tts supports English only' : 'Script & TTS language'}
+        disabled={isLocalSidecar}
+        title={
+          ttsBackend === 'local' ? 'pocket-tts supports English only' :
+          ttsBackend === 'qwen'  ? 'Qwen3-TTS supports 10 languages — unsupported languages fall back to auto-detect' :
+          'Script & TTS language'
+        }
         style={{
           padding: '4px 24px 4px 8px', borderRadius: 8, fontSize: 9,
           fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.08em',
           background: 'var(--card)', border: 'none',
-          color: ttsBackend === 'local' ? 'var(--muted2)' : language === 'English' ? 'var(--muted)' : 'var(--text)',
-          cursor: ttsBackend === 'local' ? 'not-allowed' : 'pointer', outline: 'none',
-          opacity: ttsBackend === 'local' ? 0.5 : 1,
+          color: isLocalSidecar ? 'var(--muted2)' : language === 'English' ? 'var(--muted)' : 'var(--text)',
+          cursor: isLocalSidecar ? 'not-allowed' : 'pointer', outline: 'none',
+          opacity: isLocalSidecar ? 0.5 : 1,
         }}
       >
         <option value="English">EN</option>
@@ -153,6 +158,7 @@ export function Toolbar({
       <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2 }}>
         {([
           { id: 'local', label: 'LOCAL' },
+          { id: 'qwen', label: 'QWEN3' },
           { id: 'elevenlabs', label: '11LABS' },
           { id: 'openai', label: 'OPENAI' },
         ] as const).map(b => (
