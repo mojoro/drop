@@ -40,8 +40,9 @@ export async function POST(req: Request) {
   };
   const customSystemPrompt = typeof body?.customSystemPrompt === "string" ? body.customSystemPrompt : undefined;
   const customUserPrompt = typeof body?.customUserPrompt === "string" ? body.customUserPrompt : undefined;
+  const monologue = body?.monologue === true;
   const clientLlmOrder: string[] | undefined = Array.isArray(body?.llmOrder) ? body.llmOrder : undefined;
-  const promptOpts: PromptOptions = { language, hosts: hostNames, customSystemPrompt, customUserPrompt };
+  const promptOpts: PromptOptions = { language, hosts: hostNames, customSystemPrompt, customUserPrompt, monologue };
 
   // Load active profile from server (keys never come from the client)
   let profile: SettingsProfile | null = null;

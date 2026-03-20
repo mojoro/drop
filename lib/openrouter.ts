@@ -93,7 +93,7 @@ export async function generateScriptOpenRouter(
       cfg.maxTokens,
     );
 
-    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes, !!promptOpts.monologue)) {
       return firstPass;
     }
 
@@ -107,7 +107,7 @@ export async function generateScriptOpenRouter(
       cfg.maxTokens,
     );
 
-    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes)) {
+    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes, !!promptOpts.monologue)) {
       throw new Error("OpenRouter returned invalid script format after retry.");
     }
 

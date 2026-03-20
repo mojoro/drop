@@ -9,6 +9,7 @@ export type PromptOptions = {
   hosts?: HostNames;
   customSystemPrompt?: string;
   customUserPrompt?: string;
+  monologue?: boolean;
 };
 
 const LENGTH_PRESETS = {
@@ -30,7 +31,7 @@ export function getLengthConfig(length: ScriptLength, customMinutes?: number) {
 }
 
 export function buildSystemPrompt(opts: PromptOptions = {}): string {
-  const { language, hosts = DEFAULT_HOSTS, customSystemPrompt } = opts;
+  const { language, hosts = DEFAULT_HOSTS, customSystemPrompt, monologue } = opts;
   if (customSystemPrompt) {
     return customSystemPrompt
       .replace(/\{\{HOST_A\}\}/g, hosts.a)
@@ -38,8 +39,17 @@ export function buildSystemPrompt(opts: PromptOptions = {}): string {
       .replace(/\{\{LANGUAGE\}\}/g, language || "English");
   }
   const langInstruction = language && language !== "English"
-    ? ` Write ALL dialogue in ${language}.`
+    ? ` Write ALL content in ${language}.`
     : "";
+  if (monologue) {
+    return [
+      "You are a podcast narrator.",
+      "Write a compelling single-speaker narration.",
+      `Return ONLY lines in this exact format: "${hosts.a}: ...".`,
+      "No intro, no title, no bullets, no stage directions, no markdown.",
+      `Keep it engaging and natural.${langInstruction}`,
+    ].join(" ");
+  }
   return [
     "You are a podcast script writer.",
     "Write a punchy, 2-host dialogue.",
@@ -50,7 +60,7 @@ export function buildSystemPrompt(opts: PromptOptions = {}): string {
 }
 
 export function buildUserPrompt(content: string, length: ScriptLength = "short", opts: PromptOptions = {}, customMinutes?: number): string {
-  const { language, hosts = DEFAULT_HOSTS, customUserPrompt } = opts;
+  const { language, hosts = DEFAULT_HOSTS, customUserPrompt, monologue } = opts;
   const cfg = getLengthConfig(length, customMinutes);
   if (customUserPrompt) {
     return customUserPrompt
@@ -63,6 +73,26 @@ export function buildUserPrompt(content: string, length: ScriptLength = "short",
       .replace(/\{\{DURATION\}\}/g, cfg.duration)
       .replace(/\{\{CHARS_MIN\}\}/g, String(cfg.chars[0]))
       .replace(/\{\{CHARS_MAX\}\}/g, String(cfg.chars[1]));
+  }
+  if (monologue) {
+    const langRule = language && language !== "English"
+      ? `\n- Write ALL narration in ${language} (keep ${hosts.a}: prefix in English)`
+      : "";
+    return `
+Write an engaging solo podcast narration based on the source below.
+
+Rules:
+- Single narrator: ${hosts.a} only
+- ${hosts.a} is an engaging, insightful storyteller who speaks directly to the listener
+- ${cfg.lines[0]} to ${cfg.lines[1]} total lines
+- Every line must start with ${hosts.a}:
+- End with a memorable takeaway
+- Target roughly ${cfg.duration} spoken duration
+- Keep the total spoken text between ${cfg.chars[0]} and ${cfg.chars[1]} characters${langRule}
+
+Source:
+${content.trim().slice(0, 10000)}
+`.trim();
   }
   const langRule = language && language !== "English"
     ? `\n- Write ALL dialogue lines in ${language} (keep ${hosts.a}: and ${hosts.b}: prefixes in English)`
@@ -86,8 +116,25 @@ ${content.trim().slice(0, 10000)}
 }
 
 export function buildRepairPrompt(firstPass: string, length: ScriptLength = "short", opts: PromptOptions = {}, customMinutes?: number): string {
-  const { language, hosts = DEFAULT_HOSTS } = opts;
+  const { language, hosts = DEFAULT_HOSTS, monologue } = opts;
   const cfg = getLengthConfig(length, customMinutes);
+  if (monologue) {
+    const langRule = language && language !== "English"
+      ? `\n- Keep narration in ${language} (${hosts.a}: prefix stays in English)`
+      : "";
+    return `
+Rewrite the text below into the required strict format.
+
+Rules:
+- Every non-empty line must start with ${hosts.a}:
+- Keep the meaning
+- No extra commentary
+- ${cfg.lines[0]} to ${cfg.lines[1]} total lines${langRule}
+
+Text:
+${firstPass}
+`.trim();
+  }
   const langRule = language && language !== "English"
     ? `\n- Keep dialogue in ${language} (${hosts.a}: and ${hosts.b}: prefixes stay in English)`
     : "";

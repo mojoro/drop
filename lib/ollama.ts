@@ -74,12 +74,12 @@ export async function generateScriptOllama(content: string, length: ScriptLength
       { role: "user", content: userPrompt },
     ]);
 
-    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes, !!promptOpts.monologue)) {
       return firstPass;
     }
 
     // First pass didn't fully validate — try extracting valid lines directly
-    const extracted = extractValidLines(firstPass, hosts.a, hosts.b);
+    const extracted = promptOpts.monologue ? extractValidLines(firstPass, hosts.a) : extractValidLines(firstPass, hosts.a, hosts.b);
     if (extracted.length >= 4) {
       console.warn(`Ollama: first pass had ${extracted.length} valid lines out of mixed output, using them`);
       return extracted.join("\n");
@@ -97,7 +97,7 @@ export async function generateScriptOllama(content: string, length: ScriptLength
     }
 
     // Last resort: extract whatever valid lines we can
-    const repairedLines = extractValidLines(repaired, hosts.a, hosts.b);
+    const repairedLines = promptOpts.monologue ? extractValidLines(repaired, hosts.a) : extractValidLines(repaired, hosts.a, hosts.b);
     if (repairedLines.length >= 4) {
       console.warn(`Ollama: repair had ${repairedLines.length} valid lines, using them`);
       return repairedLines.join("\n");

@@ -20,20 +20,25 @@ function errorMessage(error: unknown) {
 }
 
 /** Extract valid host lines from raw model output. */
-export function extractValidLines(script: string, hostA = "ALEX", hostB = "SAM"): string[] {
-  const pattern = new RegExp(`^(${hostA}|${hostB}):\\s.+`, "i");
+export function extractValidLines(script: string, hostA = "ALEX", hostB?: string): string[] {
+  const pattern = hostB
+    ? new RegExp(`^(${hostA}|${hostB}):\\s.+`, "i")
+    : new RegExp(`^${hostA}:\\s.+`, "i");
   return script
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => pattern.test(line));
 }
 
-export function validatePodcastScript(script: string, length: ScriptLength = "short", hostA = "ALEX", hostB = "SAM", customMinutes?: number) {
-  const lines = extractValidLines(script, hostA, hostB);
+export function validatePodcastScript(script: string, length: ScriptLength = "short", hostA = "ALEX", hostB = "SAM", customMinutes?: number, monologue = false) {
+  const lines = monologue
+    ? extractValidLines(script, hostA)
+    : extractValidLines(script, hostA, hostB);
   const minLines = Math.max(4, getLengthConfig(length, customMinutes).lines[0] - 4);
   if (lines.length < minLines) return false;
 
   const patA = new RegExp(`^${hostA}:`, "i");
+  if (monologue) return lines.some((l) => patA.test(l));
   const patB = new RegExp(`^${hostB}:`, "i");
   return lines.some((l) => patA.test(l)) && lines.some((l) => patB.test(l));
 }
@@ -96,7 +101,7 @@ export async function generateScriptFeatherless(content: string, length: ScriptL
       { role: "user", content: userPrompt },
     ], cfg.maxTokens);
 
-    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes)) {
+    if (validatePodcastScript(firstPass, length, hosts.a, hosts.b, customMinutes, !!promptOpts.monologue)) {
       return firstPass;
     }
 
@@ -105,7 +110,7 @@ export async function generateScriptFeatherless(content: string, length: ScriptL
       { role: "user", content: buildRepairPrompt(firstPass, length, promptOpts, customMinutes) },
     ], cfg.maxTokens);
 
-    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes)) {
+    if (!validatePodcastScript(repaired, length, hosts.a, hosts.b, customMinutes, !!promptOpts.monologue)) {
       throw new Error("Featherless returned invalid script format after retry.");
     }
 
