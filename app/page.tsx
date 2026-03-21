@@ -8,7 +8,6 @@ import { PipelineViz } from '../components/PipelineViz'
 import { VoiceSelect } from '../components/VoiceSelect'
 import { SettingsPanel } from '../components/SettingsPanel'
 import { LibraryPanel } from '../components/LibraryPanel'
-import { PromptPanel } from '../components/PromptPanel'
 import { Toolbar } from '../components/Toolbar'
 import { ResultsSection } from '../components/ResultsSection'
 
@@ -36,7 +35,7 @@ export default function Home() {
   const [result,     setResult]     = useState<Result | null>(null)
   const [error,      setError]      = useState<string | null>(null)
   const [alexVoice,  setAlexVoice]  = useState('alba')
-  const [scriptLength, setScriptLength] = useState<'short' | 'medium' | 'long' | 'custom' | 'unlimited'>('short')
+  const [scriptLength, setScriptLength] = useState<'1m' | '5m' | '10m' | '30m' | 'custom'>('1m')
   const [customMinutes, setCustomMinutes] = useState(5)
   const [language, setLanguage] = useState('English')
   const [llmBackend, setLlmBackend] = useState<'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'>('auto')
@@ -65,8 +64,7 @@ export default function Home() {
   const [saving,       setSaving]       = useState(false)
   const [savedToLibrary, setSavedToLibrary] = useState(false)
   const [ttsProgress, setTtsProgress] = useState<{ current: number; total: number } | null>(null)
-  const [showPrompt, setShowPrompt] = useState(false)
-  const [customSystemPrompt, setCustomSystemPrompt] = useState('')
+const [customSystemPrompt, setCustomSystemPrompt] = useState('')
   const [customUserPrompt, setCustomUserPrompt] = useState('')
   const [llmOrder, setLlmOrder] = useState<('ollama' | 'openrouter' | 'featherless' | 'claude')[]>(['ollama', 'openrouter', 'featherless', 'claude'])
   const [profileName,  setProfileName]  = useState('')
@@ -79,6 +77,29 @@ export default function Home() {
   const chunksRef      = useRef<Blob[]>([])
   const timerRef       = useRef<ReturnType<typeof setInterval> | null>(null)
   const abortRef       = useRef<AbortController | null>(null)
+  const ttsStartRef    = useRef<number | null>(null)
+  const ttsTimerRef    = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [ttsElapsed, setTtsElapsed] = useState(0)
+
+  const isTtsSynthesizing = ttsProgress !== null
+  useEffect(() => {
+    if (isTtsSynthesizing) {
+      if (ttsStartRef.current === null) {
+        ttsStartRef.current = Date.now()
+        setTtsElapsed(0)
+      }
+      if (!ttsTimerRef.current) {
+        ttsTimerRef.current = setInterval(() => {
+          setTtsElapsed(Math.floor((Date.now() - ttsStartRef.current!) / 1000))
+        }, 1000)
+      }
+    } else {
+      if (ttsTimerRef.current) { clearInterval(ttsTimerRef.current); ttsTimerRef.current = null }
+      ttsStartRef.current = null
+      setTtsElapsed(0)
+    }
+    return () => { if (ttsTimerRef.current) { clearInterval(ttsTimerRef.current); ttsTimerRef.current = null } }
+  }, [isTtsSynthesizing])
 
   const busy = stage === 'extracting' || stage === 'writing' || stage === 'audio'
   const ttsReady = (ttsBackend !== 'local' && ttsBackend !== 'qwen') || ttsOnline !== false
@@ -178,6 +199,9 @@ export default function Home() {
       }
     }).catch(() => {})
     refreshLibrary()
+
+    const pollId = setInterval(() => refreshVoices(), 15_000)
+    return () => clearInterval(pollId)
   }, [refreshLibrary])
 
   function selectProfile(name: string) {
@@ -547,7 +571,7 @@ export default function Home() {
       {/* ── Panel toggles ── */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button
-          onClick={() => { setShowSettings(s => !s); setShowLibrary(false); setShowPrompt(false) }}
+          onClick={() => { setShowSettings(s => !s); setShowLibrary(false) }}
           style={{
             padding: '5px 14px', borderRadius: 8,
             fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
@@ -560,7 +584,7 @@ export default function Home() {
           {showSettings ? '\u25BE SETTINGS' : '\u25B8 SETTINGS'}
         </button>
         <button
-          onClick={() => { setShowLibrary(s => !s); setShowSettings(false); setShowPrompt(false); if (!showLibrary) refreshLibrary() }}
+          onClick={() => { setShowLibrary(s => !s); setShowSettings(false); if (!showLibrary) refreshLibrary() }}
           style={{
             padding: '5px 14px', borderRadius: 8,
             fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
@@ -573,22 +597,6 @@ export default function Home() {
           {showLibrary ? '\u25BE LIBRARY' : '\u25B8 LIBRARY'}
           {podcasts.length > 0 && (
             <span style={{ marginLeft: 6, fontSize: 9, opacity: 0.6, fontVariantNumeric: 'tabular-nums' }}> {podcasts.length}</span>
-          )}
-        </button>
-        <button
-          onClick={() => { setShowPrompt(s => !s); setShowSettings(false); setShowLibrary(false) }}
-          style={{
-            padding: '5px 14px', borderRadius: 8,
-            fontSize: 10, fontWeight: 600, letterSpacing: '0.1em',
-            color: showPrompt ? 'var(--text)' : 'var(--muted)',
-            background: showPrompt ? 'var(--card)' : 'transparent',
-            border: `1px solid ${showPrompt ? 'var(--border2)' : 'transparent'}`,
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'all 0.15s',
-          }}
-        >
-          {showPrompt ? '\u25BE PROMPT' : '\u25B8 PROMPT'}
-          {(customSystemPrompt || customUserPrompt) && (
-            <span style={{ marginLeft: 6, fontSize: 9, color: 'var(--accent)' }}>{'\u25CF'}</span>
           )}
         </button>
       </div>
@@ -606,6 +614,14 @@ export default function Home() {
           profileForm={profileForm}
           onProfileFormChange={setProfileForm}
           onSaveProfile={handleSaveProfile}
+          hostA={hostA}
+          hostB={hostB}
+          customSystemPrompt={customSystemPrompt}
+          onCustomSystemPromptChange={setCustomSystemPrompt}
+          customUserPrompt={customUserPrompt}
+          onCustomUserPromptChange={setCustomUserPrompt}
+          llmOrder={llmOrder}
+          onLlmOrderChange={setLlmOrder}
         />
       )}
 
@@ -615,21 +631,6 @@ export default function Home() {
           podcasts={podcasts}
           onLoadPodcast={handleLoadPodcast}
           onDeletePodcast={handleDeletePodcast}
-        />
-      )}
-
-      {/* ── Prompt panel ── */}
-      {showPrompt && (
-        <PromptPanel
-          hostA={hostA}
-          hostB={hostB}
-          customSystemPrompt={customSystemPrompt}
-          onCustomSystemPromptChange={setCustomSystemPrompt}
-          customUserPrompt={customUserPrompt}
-          onCustomUserPromptChange={setCustomUserPrompt}
-          llmOrder={llmOrder}
-          onLlmOrderChange={setLlmOrder}
-          serverStatus={serverStatus}
         />
       )}
 
@@ -644,7 +645,7 @@ export default function Home() {
       <div
         className="animate-slide-up"
         style={{
-          width: '100%', maxWidth: 640,
+          width: '100%', maxWidth: 704,
           borderRadius: 18,
           background: 'var(--card)',
           border: '1px solid var(--border)',
@@ -683,7 +684,7 @@ export default function Home() {
           <button
             onClick={() => { setShowClone(c => !c); setCloneMsg(null) }}
             style={{
-              fontSize: 9, fontWeight: 600, letterSpacing: '0.1em',
+              fontSize: 12, fontWeight: 600, letterSpacing: '0.1em',
               color: showClone ? 'var(--text)' : 'var(--muted)',
               background: 'none', border: 'none', cursor: 'pointer',
               fontFamily: 'inherit', padding: 0, marginLeft: 'auto',
@@ -872,7 +873,7 @@ export default function Home() {
       </div>
 
       {/* ── Host names + warnings ── */}
-      <div style={{ width: '100%', maxWidth: 640, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ width: '100%', maxWidth: 704, marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {/* Mode + host name config */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Dialogue / Monologue toggle */}
@@ -882,7 +883,7 @@ export default function Home() {
                 key={mode}
                 onClick={() => setMonologue(mode === 'monologue')}
                 style={{
-                  padding: '3px 8px', borderRadius: 4, fontSize: 8,
+                  padding: '5px 10px', borderRadius: 4, fontSize: 11,
                   fontWeight: (monologue ? mode === 'monologue' : mode === 'dialogue') ? 700 : 400,
                   fontFamily: 'inherit', cursor: 'pointer', border: 'none',
                   letterSpacing: '0.08em', transition: 'all 0.15s',
@@ -949,7 +950,7 @@ export default function Home() {
         <div
           className="animate-slide-up"
           style={{
-            width: '100%', maxWidth: 640, marginTop: 12,
+            width: '100%', maxWidth: 704, marginTop: 12,
             padding: '12px 16px', borderRadius: 12,
             background: 'rgba(255,92,58,0.08)',
             border: '1px solid rgba(255,92,58,0.2)',
@@ -977,7 +978,7 @@ export default function Home() {
         <div
           className="animate-slide-up"
           style={{
-            width: '100%', maxWidth: 640, marginTop: 12,
+            width: '100%', maxWidth: 704, marginTop: 12,
             padding: '12px 16px', borderRadius: 12,
             background: 'rgba(255,92,58,0.05)',
             border: '1px solid var(--border)',
@@ -995,16 +996,23 @@ export default function Home() {
 
       {/* ── Loading skeleton ── */}
       {busy && (
-        <div className="animate-slide-up" style={{ width: '100%', maxWidth: 640, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="animate-slide-up" style={{ width: '100%', maxWidth: 704, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
           <div style={{ borderRadius: 16, padding: '18px 20px', background: 'var(--card)', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
               <span style={{ color: 'var(--accent)', fontSize: 13 }}>{'\u25C9'}</span>
               <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>{stageLabel}</span>
-              {ttsProgress && (
-                <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>
-                  {ttsProgress.current}/{ttsProgress.total} lines
-                </span>
-              )}
+              {ttsProgress && (() => {
+                const pct = ttsProgress.current / ttsProgress.total
+                const remaining = ttsProgress.current > 0 ? Math.round(ttsElapsed / pct - ttsElapsed) : null
+                const fmt = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+                return (
+                  <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto', display: 'flex', gap: 10 }}>
+                    <span>{ttsProgress.current}/{ttsProgress.total} lines</span>
+                    <span>{fmt(ttsElapsed)} elapsed</span>
+                    {remaining !== null && <span>~{fmt(remaining)} left</span>}
+                  </span>
+                )
+              })()}
             </div>
             {ttsProgress ? (
               <div style={{ height: 3, borderRadius: 2, background: 'var(--border)', overflow: 'hidden' }}>

@@ -24,7 +24,7 @@ export function PromptPanel({
     <div
       className="animate-slide-up"
       style={{
-        width: '100%', maxWidth: 640, marginBottom: 20,
+        width: '100%', maxWidth: 704, marginBottom: 20,
         borderRadius: 16, padding: '18px 20px',
         background: 'var(--card)', border: '1px solid var(--border)',
       }}
@@ -33,13 +33,13 @@ export function PromptPanel({
         <div style={{
           padding: '8px 12px', borderRadius: 8,
           background: 'rgba(255,92,58,0.06)', border: '1px solid rgba(255,92,58,0.15)',
-          fontSize: 10, color: '#ff8566', lineHeight: 1.5,
+          fontSize: 12, color: '#ff8566', lineHeight: 1.5,
         }}>
           {'\u26A0'} Editing prompts can break script generation. Only change if you know what you{"'"}re doing. Leave blank to use defaults.
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginBottom: 6 }}>
             SYSTEM PROMPT
           </label>
           <textarea
@@ -57,7 +57,7 @@ export function PromptPanel({
         </div>
 
         <div>
-          <label style={{ display: 'block', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginBottom: 6 }}>
+          <label style={{ display: 'block', fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)', marginBottom: 6 }}>
             USER PROMPT <span style={{ color: 'var(--muted2)', fontWeight: 400 }}>{'(use {{SOURCE}} for article content)'}</span>
           </label>
           <textarea
@@ -79,7 +79,7 @@ export function PromptPanel({
             onClick={() => { onCustomSystemPromptChange(''); onCustomUserPromptChange('') }}
             style={{
               alignSelf: 'flex-start',
-              padding: '6px 14px', borderRadius: 8, fontSize: 10,
+              padding: '6px 14px', borderRadius: 8, fontSize: 12,
               fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'inherit',
               cursor: 'pointer', border: '1px solid var(--border2)',
               background: 'transparent', color: 'var(--muted)',
@@ -93,10 +93,10 @@ export function PromptPanel({
         <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
 
         {/* Fallback order */}
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
           AUTO CASCADE ORDER
         </div>
-        <p style={{ margin: 0, fontSize: 10, color: 'var(--muted2)', lineHeight: 1.5 }}>
+        <p style={{ margin: 0, fontSize: 12, color: 'var(--muted2)', lineHeight: 1.5 }}>
           When LLM is set to AUTO, backends are tried in this order. Drag to reorder, or use arrows.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -110,8 +110,8 @@ export function PromptPanel({
                 padding: '6px 10px', borderRadius: 8,
                 background: 'var(--card2)', border: '1px solid var(--border2)',
               }}>
-                <span style={{ fontSize: 10, color: 'var(--muted2)', width: 16, textAlign: 'center' }}>{i + 1}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, flex: 1, color: 'var(--text)' }}>
+                <span style={{ fontSize: 12, color: 'var(--muted2)', width: 16, textAlign: 'center' }}>{i + 1}</span>
+                <span style={{ fontSize: 12, fontWeight: 600, flex: 1, color: 'var(--text)' }}>
                   {backend.toUpperCase()}
                 </span>
                 {available !== null && (
