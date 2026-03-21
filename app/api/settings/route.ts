@@ -10,6 +10,8 @@ export async function GET() {
     ollama: !!process.env.OLLAMA_MODEL,
     ollamaUrl: process.env.OLLAMA_URL || "http://localhost:11434",
     ollamaModel: process.env.OLLAMA_MODEL || "",
+    ttsUrl: process.env.TTS_SERVER_URL || "http://localhost:8000",
+    qwenTtsUrl: process.env.QWEN_TTS_SERVER_URL || "http://localhost:8001",
     openrouter: !!process.env.OPENROUTER_API_KEY,
     featherless: !!process.env.FEATHERLESS_API_KEY,
     anthropic: !!process.env.ANTHROPIC_API_KEY,

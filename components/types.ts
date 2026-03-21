@@ -26,6 +26,10 @@ export type ServerStatus = {
   featherless: boolean
   anthropic: boolean
   needle: boolean
+  ollamaUrl?: string
+  ollamaModel?: string
+  ttsUrl?: string
+  qwenTtsUrl?: string
 }
 
 export function capitalize(s: string) {
