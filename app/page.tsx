@@ -200,7 +200,8 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
     }).catch(() => {})
     refreshLibrary()
 
-    const pollId = setInterval(() => refreshVoices(), 15_000)
+    refreshVoices()
+    const pollId = setInterval(() => refreshVoices(), 5_000)
     return () => clearInterval(pollId)
   }, [refreshLibrary])
 
