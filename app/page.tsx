@@ -239,6 +239,7 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
           scriptBackend: finalResult.scriptBackend,
           alexVoice, samVoice,
           audio: finalResult.audio,
+          monologue, hostA, hostB,
         }),
       })
       setSavedToLibrary(true)
@@ -264,6 +265,7 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
           scriptBackend: result.scriptBackend,
           alexVoice, samVoice,
           audio: result.audio,
+          monologue, hostA, hostB,
         }),
       })
       setSaveTitle('')
@@ -285,6 +287,10 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
     setInput(p.input || p.scriptLines.map(l => `${l.speaker}: ${l.text}`).join('\n'))
     if (p.alexVoice) setAlexVoice(p.alexVoice)
     if (p.samVoice) setSamVoice(p.samVoice)
+    if (p.hostA) setHostA(p.hostA)
+    if (p.hostB) setHostB(p.hostB)
+    const isMono = p.monologue ?? new Set(p.scriptLines.map(l => l.speaker)).size === 1
+    setMonologue(isMono)
     setShowLibrary(false)
     setResult({ scriptLines: p.scriptLines, audio: `/api/library/${p.id}/audio`, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
     setSavedToLibrary(true)
@@ -1039,6 +1045,7 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
           samVoice={samVoice}
           hostA={hostA}
           hostB={hostB}
+          monologue={monologue}
           busy={busy}
           saveTitle={saveTitle}
           onSaveTitleChange={setSaveTitle}

@@ -7,6 +7,7 @@ export type SavedPodcast = {
   id: string; title: string; input: string
   scriptLines: ScriptLine[]; scriptBackend: string
   alexVoice: string; samVoice: string; createdAt: string
+  monologue?: boolean; hostA?: string; hostB?: string
 }
 
 export type MaskedProfile = {

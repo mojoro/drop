@@ -10,6 +10,7 @@ export interface ResultsSectionProps {
   samVoice: string
   hostA: string
   hostB: string
+  monologue: boolean
   busy: boolean
   saveTitle: string
   onSaveTitleChange: (title: string) => void
@@ -22,7 +23,7 @@ export interface ResultsSectionProps {
 }
 
 export function ResultsSection({
-  result, alexVoice, samVoice, hostA, hostB, busy,
+  result, alexVoice, samVoice, hostA, hostB, monologue, busy,
   saveTitle, onSaveTitleChange, saving, saved,
   onSavePodcast, onDownloadMp3, onResynthesize, onCopyScript,
 }: ResultsSectionProps) {
@@ -36,7 +37,7 @@ export function ResultsSection({
             <span style={{ color: 'var(--accent)', fontSize: 13 }}>{'\u25C9'}</span>
             <span style={{ color: 'var(--muted)', fontSize: 10, letterSpacing: '0.15em' }}>PODCAST EPISODE</span>
             <span style={{ color: 'var(--muted2)', fontSize: 10, marginLeft: 'auto' }}>
-              {capitalize(alexVoice)} {'\u00D7'} {capitalize(samVoice)}
+              {monologue ? capitalize(alexVoice) : `${capitalize(alexVoice)} \u00D7 ${capitalize(samVoice)}`}
             </span>
           </div>
           <audio controls autoPlay className="audio-full" src={result.audio.startsWith('/') ? result.audio : `data:audio/wav;base64,${result.audio}`} />

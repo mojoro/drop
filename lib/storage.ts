@@ -66,6 +66,9 @@ export type PodcastMeta = {
   alexVoice: string;
   samVoice: string;
   createdAt: string;
+  monologue?: boolean;
+  hostA?: string;
+  hostB?: string;
 };
 
 export async function listPodcasts(): Promise<PodcastMeta[]> {
