@@ -286,26 +286,10 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
     if (p.alexVoice) setAlexVoice(p.alexVoice)
     if (p.samVoice) setSamVoice(p.samVoice)
     setShowLibrary(false)
-    setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+    setResult({ scriptLines: p.scriptLines, audio: `/api/library/${p.id}/audio`, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+    setSavedToLibrary(true)
+    setSaveTitle(p.title)
     setStage('done')
-    // Load audio in background — script is visible immediately
-    try {
-      const res = await fetch(`/api/library/${p.id}/audio`)
-      if (!res.ok) throw new Error('Audio not found')
-      const blob = await res.blob()
-      const audio = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => {
-          const dataUrl = reader.result as string
-          resolve(dataUrl.split(',')[1])
-        }
-        reader.onerror = reject
-        reader.readAsDataURL(blob)
-      })
-      setResult(prev => prev ? { ...prev, audio } : { scriptLines: p.scriptLines, audio, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
-    } catch {
-      // audio stays null — user can re-voice if needed
-    }
   }
 
   function inputLooksLikeTranscript(): boolean {
@@ -525,10 +509,21 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
 
   async function handleDownloadMp3() {
     if (!result?.audio) return
+    let audioBase64 = result.audio
+    if (audioBase64.startsWith('/')) {
+      const r = await fetch(audioBase64)
+      const buf = await r.arrayBuffer()
+      const bytes = new Uint8Array(buf)
+      const chunks: string[] = []
+      for (let i = 0; i < bytes.length; i += 0x8000) {
+        chunks.push(String.fromCharCode.apply(null, [...bytes.subarray(i, i + 0x8000)]))
+      }
+      audioBase64 = btoa(chunks.join(''))
+    }
     const res = await fetch('/api/encode-mp3', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ audio: result.audio }),
+      body: JSON.stringify({ audio: audioBase64 }),
     })
     const data = await res.json()
     if (!res.ok || !data.audio) return

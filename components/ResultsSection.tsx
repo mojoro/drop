@@ -39,7 +39,7 @@ export function ResultsSection({
               {capitalize(alexVoice)} {'\u00D7'} {capitalize(samVoice)}
             </span>
           </div>
-          <audio controls autoPlay className="audio-full" src={`data:audio/wav;base64,${result.audio}`} />
+          <audio controls autoPlay className="audio-full" src={result.audio.startsWith('/') ? result.audio : `data:audio/wav;base64,${result.audio}`} />
         </div>
       )}
 
