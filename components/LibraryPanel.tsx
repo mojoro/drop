@@ -13,13 +13,13 @@ export function LibraryPanel({ podcasts, onLoadPodcast, onDeletePodcast }: Libra
     <div
       className="animate-slide-up"
       style={{
-        width: '100%', maxWidth: 640, marginBottom: 20,
+        width: '100%', maxWidth: 704, marginBottom: 20,
         borderRadius: 16, padding: '18px 20px',
         background: 'var(--card)', border: '1px solid var(--border)',
       }}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', color: 'var(--muted)' }}>
           SAVED PODCASTS
         </div>
 
@@ -42,7 +42,7 @@ export function LibraryPanel({ podcasts, onLoadPodcast, onDeletePodcast }: Libra
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {p.title}
                   </div>
-                  <div style={{ fontSize: 9, color: 'var(--muted2)', marginTop: 2, display: 'flex', gap: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--muted2)', marginTop: 2, display: 'flex', gap: 8 }}>
                     <span>{new Date(p.createdAt).toLocaleDateString()}</span>
                     <span>{p.scriptLines.length} lines</span>
                     <span>{p.scriptBackend.toUpperCase()}</span>
@@ -51,7 +51,7 @@ export function LibraryPanel({ podcasts, onLoadPodcast, onDeletePodcast }: Libra
                 <button
                   onClick={() => onLoadPodcast(p)}
                   style={{
-                    padding: '4px 10px', borderRadius: 6, fontSize: 9,
+                    padding: '5px 11px', borderRadius: 6, fontSize: 11,
                     fontWeight: 600, letterSpacing: '0.08em', fontFamily: 'inherit',
                     cursor: 'pointer', border: '1px solid var(--border2)',
                     background: 'transparent', color: 'var(--muted)',

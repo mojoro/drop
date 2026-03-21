@@ -9,7 +9,7 @@ export function SettingsInput({ label, placeholder, value, onChange, secret, sty
   const [show, setShow] = useState(false)
   return (
     <div style={style}>
-      <label style={{ display: 'block', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', color: 'var(--muted)', marginBottom: 4 }}>
+      <label style={{ display: 'block', fontSize: 11, fontWeight: 600, letterSpacing: '0.2em', color: 'var(--text)', marginBottom: 4 }}>
         {label}
       </label>
       <div style={{ position: 'relative' }}>

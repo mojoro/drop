@@ -240,7 +240,7 @@ export default function DemoPage() {
       <div
         className="animate-slide-up"
         style={{
-          width: '100%', maxWidth: 640,
+          width: '100%', maxWidth: 704,
           borderRadius: 18,
           background: 'var(--card)',
           border: '1px solid var(--border)',
@@ -357,7 +357,7 @@ export default function DemoPage() {
 
       {/* ── Result ── */}
       {showResult && (
-        <div className="animate-slide-up" style={{ width: '100%', maxWidth: 640, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div className="animate-slide-up" style={{ width: '100%', maxWidth: 704, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
           {/* Audio */}
           <div style={{ borderRadius: 16, padding: '18px 20px', background: 'var(--card)', border: '1px solid var(--border)' }}>

@@ -52,7 +52,7 @@ body::after {
   z-index: 0;
 }
 
-main { position: relative; z-index: 1; }
+main { position: relative; z-index: 1; zoom: 1.05; }
 
 /* Pipeline node animations */
 @keyframes pulse-ring {
@@ -120,15 +120,18 @@ audio.audio-full {
   color: var(--text) !important;
 }
 
-/* Show ⌘↵ hint on desktop */
-@media (min-width: 640px) {
-  .cmd-hint { display: inline-flex !important; }
-}
-
 /* Mobile: stack voice selectors */
 @media (max-width: 480px) {
   .voice-panel { flex-direction: column !important; }
 }
+
+/* Hide number input spinners — they cut off digits and can't be themed */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
 
 /* Toolbar always wraps gracefully */
 .bottom-toolbar {

@@ -27,7 +27,7 @@ export function ResultsSection({
   onSavePodcast, onDownloadMp3, onResynthesize, onCopyScript,
 }: ResultsSectionProps) {
   return (
-    <div className="animate-slide-up" style={{ width: '100%', maxWidth: 640, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
+    <div className="animate-slide-up" style={{ width: '100%', maxWidth: 704, marginTop: 20, display: 'flex', flexDirection: 'column', gap: 14 }}>
 
       {/* Audio */}
       {result.audio && (
@@ -84,7 +84,7 @@ export function ResultsSection({
               </button>
             </>
           )}
-          <ActionButton onClick={onDownloadMp3} disabled={false} label="MP3 \u2193" hint="download as MP3" />
+          <ActionButton onClick={onDownloadMp3} disabled={false} label={"MP3 \u2193"} hint="download as MP3" />
         </div>
       )}
 
