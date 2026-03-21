@@ -165,7 +165,7 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
         const ids = new Set(newVoices.map(v => v.id))
         if (!ids.has(alexVoice) && newVoices.length >= 1) setAlexVoice(newVoices[0].id)
         if (!ids.has(samVoice) && newVoices.length >= 2) setSamVoice(newVoices[Math.min(1, newVoices.length - 1)].id)
-        setTtsOnline(true)
+        setTtsOnline(b !== 'local' || data.voices.length > 0)
       })
       .catch(() => {
         if (b === 'local') setTtsOnline(false)
