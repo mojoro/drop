@@ -1047,6 +1047,7 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
           hostA={hostA}
           hostB={hostB}
           monologue={monologue}
+          ttsBackend={ttsBackend}
           busy={busy}
           saveTitle={saveTitle}
           onSaveTitleChange={setSaveTitle}

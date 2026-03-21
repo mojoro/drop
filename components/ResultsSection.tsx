@@ -4,6 +4,13 @@ import type { Result } from './types'
 import { capitalize } from './types'
 import { ActionButton } from './ActionButton'
 
+const TTS_LABELS: Record<string, string> = {
+  local: 'POCKET-TTS',
+  qwen: 'QWEN3-TTS',
+  elevenlabs: 'ELEVENLABS',
+  openai: 'OPENAI TTS',
+}
+
 export interface ResultsSectionProps {
   result: Result
   alexVoice: string
@@ -11,6 +18,7 @@ export interface ResultsSectionProps {
   hostA: string
   hostB: string
   monologue: boolean
+  ttsBackend: string
   busy: boolean
   saveTitle: string
   onSaveTitleChange: (title: string) => void
@@ -23,7 +31,7 @@ export interface ResultsSectionProps {
 }
 
 export function ResultsSection({
-  result, alexVoice, samVoice, hostA, hostB, monologue, busy,
+  result, alexVoice, samVoice, hostA, hostB, monologue, ttsBackend, busy,
   saveTitle, onSaveTitleChange, saving, saved,
   onSavePodcast, onDownloadMp3, onResynthesize, onCopyScript,
 }: ResultsSectionProps) {
@@ -136,7 +144,7 @@ export function ResultsSection({
       {/* Footer */}
       <div style={{ padding: '0 4px' }}>
         <span style={{ color: 'var(--muted2)', fontSize: 10, letterSpacing: '0.1em' }}>
-          LOCAL TTS {'\u00B7'} POCKET-TTS{result.scriptBackend ? ` \u00B7 ${result.scriptBackend.toUpperCase()}` : ''}
+          {TTS_LABELS[ttsBackend] ?? ttsBackend.toUpperCase()}{result.scriptBackend ? ` \u00B7 ${result.scriptBackend.toUpperCase()}` : ''}
         </span>
       </div>
     </div>
