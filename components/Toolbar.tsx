@@ -160,7 +160,7 @@ export function Toolbar({
       {/* TTS backend selector */}
       <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2 }}>
         {([
-          { id: 'local', label: 'LOCAL' },
+          { id: 'local', label: 'POCKET-TTS' },
           { id: 'qwen', label: 'QWEN3' },
           { id: 'elevenlabs', label: '11LABS' },
           { id: 'openai', label: 'OPENAI' },
