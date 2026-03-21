@@ -4,6 +4,7 @@ import {
   buildRepairPrompt,
   stripCodeFences,
   getLengthConfig,
+  getContentSlice,
   DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
@@ -63,7 +64,7 @@ export async function generateScriptOpenRouter(
   content: string,
   apiKey?: string,
   model?: string,
-  length: ScriptLength = "short",
+  length: ScriptLength = "1m",
   language?: ScriptLanguage,
   opts?: PromptOptions,
   customMinutes?: number,
@@ -71,7 +72,7 @@ export async function generateScriptOpenRouter(
   const key = apiKey || process.env.OPENROUTER_API_KEY;
   if (!key) throw new Error("Missing OpenRouter API key");
 
-  const cleanedContent = content.trim().slice(0, 10000);
+  const cleanedContent = getContentSlice(content, length, customMinutes);
   if (!cleanedContent) {
     throw new Error("No content was provided to OpenRouter.");
   }

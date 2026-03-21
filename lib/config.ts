@@ -6,7 +6,7 @@ export type AppDefaults = {
   hostA: string;
   hostB: string;
   language: string;
-  scriptLength: "short" | "medium" | "long" | "custom" | "unlimited";
+  scriptLength: "1m" | "5m" | "10m" | "30m" | "custom";
   customMinutes: number;
   llmBackend: "auto" | "ollama" | "openrouter" | "featherless" | "claude";
   llmOrder: ("ollama" | "openrouter" | "featherless" | "claude")[];
@@ -20,7 +20,7 @@ const FALLBACK: AppDefaults = {
   hostA: "ALEX",
   hostB: "SAM",
   language: "English",
-  scriptLength: "short",
+  scriptLength: "1m",
   customMinutes: 5,
   llmBackend: "auto",
   llmOrder: ["ollama", "openrouter", "featherless", "claude"],
@@ -50,5 +50,5 @@ export async function loadConfig(): Promise<AppDefaults> {
     cached = FALLBACK;
   }
 
-  return cached;
+  return cached!;
 }

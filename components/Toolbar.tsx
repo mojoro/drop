@@ -5,8 +5,8 @@ import type { ServerStatus } from './types'
 export interface ToolbarProps {
   ttsOnline: boolean | null
   ttsBackend: 'local' | 'elevenlabs' | 'openai' | 'qwen'
-  scriptLength: 'short' | 'medium' | 'long' | 'custom' | 'unlimited'
-  onScriptLengthChange: (len: 'short' | 'medium' | 'long' | 'custom' | 'unlimited') => void
+  scriptLength: '1m' | '5m' | '10m' | '30m' | 'custom'
+  onScriptLengthChange: (len: '1m' | '5m' | '10m' | '30m' | 'custom') => void
   customMinutes: number
   onCustomMinutesChange: (m: number) => void
   llmBackend: 'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'
@@ -36,22 +36,25 @@ export function Toolbar({
   return (
     <div className="bottom-toolbar" style={{
       display: 'flex', alignItems: 'center',
-      padding: '10px 16px',
+      padding: '14px 20px',
       borderTop: '1px solid var(--border)',
       background: 'var(--card2)',
-      gap: 10,
+      gap: 12,
     }}>
       {/* Sidecar status */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div
+        title={ttsBackend === 'qwen' ? serverStatus?.qwenTtsUrl : serverStatus?.ttsUrl}
+        style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'default' }}
+      >
         <div style={{
-          width: 6, height: 6, borderRadius: '50%',
+          width: 7, height: 7, borderRadius: '50%',
           background: ttsOnline === true ? 'var(--green)'
                     : ttsOnline === false ? 'var(--accent)'
                     : 'var(--muted2)',
           boxShadow: ttsOnline === true ? '0 0 6px rgba(74,222,128,0.4)' : 'none',
           transition: 'all 0.3s ease',
         }} />
-        <span style={{ fontSize: 10, color: 'var(--muted)', letterSpacing: '0.08em' }}>
+        <span style={{ fontSize: 12, color: 'var(--muted)', letterSpacing: '0.08em' }}>
           {ttsOnline === true ? 'TTS ONLINE'
            : ttsOnline === false ? 'TTS OFFLINE'
            : 'CHECKING...'}
@@ -60,13 +63,12 @@ export function Toolbar({
 
       {/* Length selector */}
       <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2, alignItems: 'center' }}>
-        {(['short', 'medium', 'long', 'custom', 'unlimited'] as const).map(len => (
+        {(['1m', '5m', '10m', '30m', 'custom'] as const).map(len => (
           <button
             key={len}
             onClick={() => onScriptLengthChange(len)}
-            title={len === 'unlimited' ? 'No token limit — generation may take a very long time' : undefined}
             style={{
-              padding: '4px 10px', borderRadius: 6, fontSize: 9,
+              padding: '5px 11px', borderRadius: 6, fontSize: 11,
               fontWeight: scriptLength === len ? 700 : 400,
               fontFamily: 'inherit', cursor: 'pointer',
               border: 'none', transition: 'all 0.15s',
@@ -75,18 +77,17 @@ export function Toolbar({
               color: scriptLength === len ? '#000' : 'var(--muted)',
             }}
           >
-            {len === 'short' ? '1m' : len === 'medium' ? '3m' : len === 'long' ? '7m' : len === 'unlimited' ? '\u221E' : `${customMinutes}m`}
+            {len === 'custom' ? `${customMinutes}m` : len}
           </button>
         ))}
         {scriptLength === 'custom' && (
           <input
             type="number"
             min={1}
-            max={240}
             value={customMinutes}
-            onChange={e => onCustomMinutesChange(Math.max(1, Math.min(240, parseInt(e.target.value) || 1)))}
+            onChange={e => onCustomMinutesChange(Math.max(1, parseInt(e.target.value) || 1))}
             style={{
-              width: 36, padding: '2px 4px', borderRadius: 4, fontSize: 9,
+              width: 52, padding: '3px 6px', borderRadius: 4, fontSize: 11,
               fontFamily: 'inherit', fontWeight: 600,
               background: 'var(--card2)', border: '1px solid var(--border2)',
               color: 'var(--text)', textAlign: 'center', outline: 'none',
@@ -97,13 +98,15 @@ export function Toolbar({
 
       {/* LLM selector */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-        <span style={{ fontSize: 7, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted2)' }}>LLM</span>
+        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--muted2)' }}>LLM</span>
         <select
           value={llmBackend}
           onChange={e => onLlmBackendChange(e.target.value as typeof llmBackend)}
-          title="Script generation model. AUTO cascades: Ollama → OpenRouter → Featherless → Claude"
+          title={llmBackend === 'ollama' || llmBackend === 'auto'
+            ? `Ollama: ${serverStatus?.ollamaUrl ?? 'http://localhost:11434'}${serverStatus?.ollamaModel ? ` (${serverStatus.ollamaModel})` : ''}`
+            : 'Script generation model'}
           style={{
-            padding: '4px 24px 4px 8px', borderRadius: 8, fontSize: 9,
+            padding: '5px 26px 5px 9px', borderRadius: 8, fontSize: 11,
             fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.08em',
             background: 'var(--card)', border: 'none',
             color: llmBackend === 'auto' ? 'var(--muted)' : 'var(--text)',
@@ -129,7 +132,7 @@ export function Toolbar({
           'Script & TTS language'
         }
         style={{
-          padding: '4px 24px 4px 8px', borderRadius: 8, fontSize: 9,
+          padding: '5px 26px 5px 9px', borderRadius: 8, fontSize: 11,
           fontFamily: 'inherit', fontWeight: 600, letterSpacing: '0.08em',
           background: 'var(--card)', border: 'none',
           color: isLocalSidecar ? 'var(--muted2)' : language === 'English' ? 'var(--muted)' : 'var(--text)',
@@ -166,7 +169,7 @@ export function Toolbar({
             key={b.id}
             onClick={() => onSwitchTtsBackend(b.id)}
             style={{
-              padding: '4px 8px', borderRadius: 6, fontSize: 8,
+              padding: '5px 9px', borderRadius: 6, fontSize: 10,
               fontWeight: ttsBackend === b.id ? 700 : 400,
               fontFamily: 'inherit', cursor: 'pointer',
               border: 'none', transition: 'all 0.15s',
@@ -181,24 +184,18 @@ export function Toolbar({
       </div>
 
       <div className="toolbar-controls" style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 'auto' }}>
-        <span className="cmd-hint" style={{
-          display: 'none', alignItems: 'center',
-          color: 'var(--muted2)', fontSize: 10, lineHeight: 1,
-        }}>
-          {'\u2318\u21B5'}
-        </span>
-        {busy ? (
+{busy ? (
           <button
             onClick={onCancel}
             aria-label="Cancel generation"
             style={{
-              padding: '8px 16px',
+              padding: '9px 18px',
               borderRadius: 10,
               fontFamily: 'inherit',
               fontWeight: 700,
-              fontSize: 12,
+              fontSize: 13,
               letterSpacing: '0.08em',
-              minHeight: 38,
+              minHeight: 40,
               cursor: 'pointer',
               transition: 'all 0.2s ease',
               border: '1px solid var(--border2)',
@@ -216,13 +213,13 @@ export function Toolbar({
                 disabled={!ttsReady}
                 aria-label="Voice this transcript"
                 style={{
-                  padding: '8px 14px',
+                  padding: '9px 15px',
                   borderRadius: 10,
                   fontFamily: 'inherit',
                   fontWeight: 700,
-                  fontSize: 11,
+                  fontSize: 13,
                   letterSpacing: '0.08em',
-                  minHeight: 38,
+                  minHeight: 40,
                   cursor: !ttsReady ? 'not-allowed' : 'pointer',
                   transition: 'all 0.2s ease',
                   border: '1px solid var(--sam)',
@@ -238,13 +235,13 @@ export function Toolbar({
               disabled={ttsOnline === false}
               aria-label="Generate podcast"
               style={{
-                padding: '8px 16px',
+                padding: '9px 18px',
                 borderRadius: 10,
                 fontFamily: 'inherit',
                 fontWeight: 700,
-                fontSize: 12,
+                fontSize: 13,
                 letterSpacing: '0.08em',
-                minHeight: 38,
+                minHeight: 40,
                 cursor: !ttsReady ? 'not-allowed' : 'pointer',
                 transition: 'all 0.2s ease',
                 border: 'none',

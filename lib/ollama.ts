@@ -3,15 +3,17 @@ import {
   buildUserPrompt,
   buildRepairPrompt,
   stripCodeFences,
+  getContentSlice,
   DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
   type PromptOptions,
 } from "@/lib/prompt";
 import { validatePodcastScript, extractValidLines } from "@/lib/featherless";
+import { getLengthConfig } from "@/lib/prompt";
 
 const DEFAULT_OLLAMA_URL = "http://localhost:11434";
-const DEFAULT_OLLAMA_MODEL = "qwen2.5:7b";
+const DEFAULT_OLLAMA_MODEL = "qwen3.5:4b";
 
 function errorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
@@ -56,8 +58,8 @@ async function callOllama(
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptOllama(content: string, length: ScriptLength = "short", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
-  const cleanedContent = content.trim().slice(0, 10000);
+export async function generateScriptOllama(content: string, length: ScriptLength = "1m", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
+  const cleanedContent = getContentSlice(content, length, customMinutes);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Ollama.");
@@ -79,8 +81,9 @@ export async function generateScriptOllama(content: string, length: ScriptLength
     }
 
     // First pass didn't fully validate — try extracting valid lines directly
+    const minLines = Math.max(4, getLengthConfig(length, customMinutes).lines[0] - 4);
     const extracted = promptOpts.monologue ? extractValidLines(firstPass, hosts.a) : extractValidLines(firstPass, hosts.a, hosts.b);
-    if (extracted.length >= 4) {
+    if (extracted.length >= minLines) {
       console.warn(`Ollama: first pass had ${extracted.length} valid lines out of mixed output, using them`);
       return extracted.join("\n");
     }
@@ -98,7 +101,7 @@ export async function generateScriptOllama(content: string, length: ScriptLength
 
     // Last resort: extract whatever valid lines we can
     const repairedLines = promptOpts.monologue ? extractValidLines(repaired, hosts.a) : extractValidLines(repaired, hosts.a, hosts.b);
-    if (repairedLines.length >= 4) {
+    if (repairedLines.length >= minLines) {
       console.warn(`Ollama: repair had ${repairedLines.length} valid lines, using them`);
       return repairedLines.join("\n");
     }

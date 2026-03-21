@@ -4,6 +4,7 @@ import {
   buildRepairPrompt,
   stripCodeFences,
   getLengthConfig,
+  getContentSlice,
   DEFAULT_HOSTS,
   type ScriptLength,
   type ScriptLanguage,
@@ -30,7 +31,7 @@ export function extractValidLines(script: string, hostA = "ALEX", hostB?: string
     .filter((line) => pattern.test(line));
 }
 
-export function validatePodcastScript(script: string, length: ScriptLength = "short", hostA = "ALEX", hostB = "SAM", customMinutes?: number, monologue = false) {
+export function validatePodcastScript(script: string, length: ScriptLength = "1m", hostA = "ALEX", hostB = "SAM", customMinutes?: number, monologue = false) {
   const lines = monologue
     ? extractValidLines(script, hostA)
     : extractValidLines(script, hostA, hostB);
@@ -82,8 +83,8 @@ async function callFeatherless(messages: Array<{ role: "system" | "user"; conten
   return stripCodeFences(content).trim();
 }
 
-export async function generateScriptFeatherless(content: string, length: ScriptLength = "short", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
-  const cleanedContent = content.trim().slice(0, 10000);
+export async function generateScriptFeatherless(content: string, length: ScriptLength = "1m", language?: ScriptLanguage, opts?: PromptOptions, customMinutes?: number): Promise<string> {
+  const cleanedContent = getContentSlice(content, length, customMinutes);
 
   if (!cleanedContent) {
     throw new Error("No content was provided to Featherless.");
