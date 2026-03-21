@@ -10,7 +10,18 @@ Drop scrapes content, generates a dialogue script with a local or cloud LLM, syn
 
 ### Docker (recommended)
 
-Requires [Docker Desktop](https://www.docker.com/products/docker-desktop/) and at least one API key or a local Ollama model.
+Requires Docker with the Compose plugin and at least one API key or a local Ollama model.
+
+**macOS** *(untested)* — install [Docker Desktop for Mac](https://www.docker.com/products/docker-desktop/). Compose is included, no extra steps.
+
+**Windows** *(untested)* — install [Docker Desktop for Windows](https://www.docker.com/products/docker-desktop/). Compose is included. Enable WSL2 integration when prompted (recommended). From PowerShell use `.\start.ps1`; from a WSL2 terminal `./start.sh` works as-is.
+
+**Linux** — install Docker, then add the Compose plugin if `docker compose` isn't found:
+```bash
+sudo apt install docker-compose-v2
+```
+
+---
 
 ```bash
 git clone https://github.com/mojoro/drop.git
@@ -27,10 +38,20 @@ OPENROUTER_API_KEY=sk-or-...
 Then:
 
 ```bash
-docker compose up
+# macOS / Linux / WSL2
+./start.sh
+
+# Windows (PowerShell)
+.\start.ps1
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+The script starts both containers in the background and prints the URL when they're ready. The app port is assigned dynamically to avoid conflicts — the script tells you which one.
+
+To rebuild after code changes: `./start.sh --build` (or `.\start.ps1 --build`)
+
+To follow logs: `docker compose logs -f`
+
+To stop: `docker compose down`
 
 > **First run:** Docker builds both images and the TTS sidecar downloads the pocket-tts model (~400 MB). This takes a few minutes. The app container waits until the TTS sidecar is healthy before starting, so the UI won't appear until the model is ready. You can watch progress with `docker compose logs tts`.
 

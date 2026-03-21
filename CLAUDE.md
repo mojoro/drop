@@ -32,7 +32,7 @@ npx tsx tests/test-scrape.ts
 All optional — set at least one LLM backend. Keys can also be configured via encrypted Settings profiles in the UI.
 
 ```
-OLLAMA_MODEL=              # e.g. qwen2.5:7b — enables local LLM
+OLLAMA_MODEL=              # e.g. qwen3.5:4b — enables local LLM
 OLLAMA_URL=                # defaults to http://localhost:11434
 OPENROUTER_API_KEY=        # cloud LLM (many models)
 FEATHERLESS_API_KEY=       # cloud LLM
