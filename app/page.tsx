@@ -286,7 +286,9 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
     if (p.alexVoice) setAlexVoice(p.alexVoice)
     if (p.samVoice) setSamVoice(p.samVoice)
     setShowLibrary(false)
-    setStage('audio')
+    setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
+    setStage('done')
+    // Load audio in background — script is visible immediately
     try {
       const res = await fetch(`/api/library/${p.id}/audio`)
       if (!res.ok) throw new Error('Audio not found')
@@ -300,11 +302,9 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
         reader.onerror = reject
         reader.readAsDataURL(blob)
       })
-      setResult({ scriptLines: p.scriptLines, audio, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
-      setStage('done')
+      setResult(prev => prev ? { ...prev, audio } : { scriptLines: p.scriptLines, audio, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
     } catch {
-      setResult({ scriptLines: p.scriptLines, audio: null, scriptBackend: p.scriptBackend as Result['scriptBackend'] })
-      setStage('done')
+      // audio stays null — user can re-voice if needed
     }
   }
 
