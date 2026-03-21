@@ -35,7 +35,7 @@ export default function Home() {
   const [result,     setResult]     = useState<Result | null>(null)
   const [error,      setError]      = useState<string | null>(null)
   const [alexVoice,  setAlexVoice]  = useState('alba')
-  const [scriptLength, setScriptLength] = useState<'1m' | '3m' | '7m' | 'custom' | 'unlimited'>('1m')
+  const [scriptLength, setScriptLength] = useState<'1m' | '5m' | '10m' | '30m' | 'custom'>('1m')
   const [customMinutes, setCustomMinutes] = useState(5)
   const [language, setLanguage] = useState('English')
   const [llmBackend, setLlmBackend] = useState<'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'>('auto')

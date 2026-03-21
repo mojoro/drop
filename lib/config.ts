@@ -6,7 +6,7 @@ export type AppDefaults = {
   hostA: string;
   hostB: string;
   language: string;
-  scriptLength: "1m" | "3m" | "7m" | "custom" | "unlimited";
+  scriptLength: "1m" | "5m" | "10m" | "30m" | "custom";
   customMinutes: number;
   llmBackend: "auto" | "ollama" | "openrouter" | "featherless" | "claude";
   llmOrder: ("ollama" | "openrouter" | "featherless" | "claude")[];

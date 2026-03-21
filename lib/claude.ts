@@ -18,7 +18,7 @@ export async function generateScriptClaude(content: string, length: ScriptLength
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: cfg.maxTokens,
+      max_tokens: Math.min(cfg.maxTokens, 8192),
       system: buildSystemPrompt(promptOpts),
       messages: [{ role: "user", content: buildUserPrompt(getContentSlice(content, length, customMinutes), length, promptOpts, customMinutes) }],
     }),

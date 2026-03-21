@@ -1,4 +1,4 @@
-export type ScriptLength = "1m" | "3m" | "7m" | "custom" | "unlimited";
+export type ScriptLength = "1m" | "5m" | "10m" | "30m" | "custom";
 export type ScriptLanguage = string; // e.g. "English", "German", "Japanese"
 
 export type HostNames = { a: string; b: string };
@@ -12,13 +12,10 @@ export type PromptOptions = {
   monologue?: boolean;
 };
 
-const PRESET_MINUTES: Record<string, number> = { "1m": 1, "3m": 3, "7m": 7 };
+const PRESET_MINUTES: Record<string, number> = { "1m": 1, "5m": 5, "10m": 10, "30m": 30 };
 
 /** Interpolate length config from a target duration in minutes. */
 export function getLengthConfig(length: ScriptLength, customMinutes?: number) {
-  if (length === "unlimited") {
-    return { lines: [60, 999] as [number, number], chars: [48000, 999000] as [number, number], duration: "unlimited", maxTokens: 128000 };
-  }
   const min = PRESET_MINUTES[length] ?? (customMinutes && customMinutes > 0 ? customMinutes : 5);
   const lines: [number, number] = [Math.round(min * 6), Math.round(min * 8)];
   const chars: [number, number] = [Math.round(min * 800), Math.round(min * 1200)];

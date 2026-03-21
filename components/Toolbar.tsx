@@ -5,8 +5,8 @@ import type { ServerStatus } from './types'
 export interface ToolbarProps {
   ttsOnline: boolean | null
   ttsBackend: 'local' | 'elevenlabs' | 'openai' | 'qwen'
-  scriptLength: '1m' | '3m' | '7m' | 'custom' | 'unlimited'
-  onScriptLengthChange: (len: '1m' | '3m' | '7m' | 'custom' | 'unlimited') => void
+  scriptLength: '1m' | '5m' | '10m' | '30m' | 'custom'
+  onScriptLengthChange: (len: '1m' | '5m' | '10m' | '30m' | 'custom') => void
   customMinutes: number
   onCustomMinutesChange: (m: number) => void
   llmBackend: 'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'
@@ -63,7 +63,7 @@ export function Toolbar({
 
       {/* Length selector */}
       <div style={{ display: 'flex', gap: 2, background: 'var(--card)', borderRadius: 8, padding: 2, alignItems: 'center' }}>
-        {(['1m', '3m', '7m', 'custom', 'unlimited'] as const).map(len => (
+        {(['1m', '5m', '10m', '30m', 'custom'] as const).map(len => (
           <button
             key={len}
             onClick={() => onScriptLengthChange(len)}
@@ -77,16 +77,15 @@ export function Toolbar({
               color: scriptLength === len ? '#000' : 'var(--muted)',
             }}
           >
-            {len === 'custom' ? `${customMinutes}m` : len === 'unlimited' ? '\u221E' : len}
+            {len === 'custom' ? `${customMinutes}m` : len}
           </button>
         ))}
         {scriptLength === 'custom' && (
           <input
             type="number"
             min={1}
-            max={240}
             value={customMinutes}
-            onChange={e => onCustomMinutesChange(Math.min(240, Math.max(1, parseInt(e.target.value) || 1)))}
+            onChange={e => onCustomMinutesChange(Math.max(1, parseInt(e.target.value) || 1))}
             style={{
               width: 52, padding: '3px 6px', borderRadius: 4, fontSize: 11,
               fontFamily: 'inherit', fontWeight: 600,
