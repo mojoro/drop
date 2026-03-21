@@ -191,7 +191,7 @@ Drop reads `drop.config.json` at the project root on startup and applies the val
     "hostA": "ALEX",
     "hostB": "SAM",
     "language": "English",
-    "scriptLength": "short",
+    "scriptLength": "1m",
     "llmBackend": "auto",
     "ttsBackend": "local",
     "monologue": false

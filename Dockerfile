@@ -25,5 +25,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 
+# Copy runtime config (not included in standalone trace)
+COPY --from=builder /app/drop.config.json ./
+
 EXPOSE 3000
 CMD ["node", "server.js"]
