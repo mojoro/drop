@@ -19,6 +19,8 @@ export type MaskedProfile = {
   needleKey: string
   ollamaUrl: string
   ollamaModel: string
+  elevenlabsKey: string
+  openaiKey: string
 }
 
 export type ServerStatus = {

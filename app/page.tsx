@@ -35,7 +35,7 @@ export default function Home() {
   const [result,     setResult]     = useState<Result | null>(null)
   const [error,      setError]      = useState<string | null>(null)
   const [alexVoice,  setAlexVoice]  = useState('alba')
-  const [scriptLength, setScriptLength] = useState<'1m' | '5m' | '10m' | '30m' | 'custom'>('1m')
+  const [scriptLength, setScriptLength] = useState<'1m' | '3m' | '7m' | 'custom' | 'unlimited'>('1m')
   const [customMinutes, setCustomMinutes] = useState(5)
   const [language, setLanguage] = useState('English')
   const [llmBackend, setLlmBackend] = useState<'auto' | 'ollama' | 'openrouter' | 'featherless' | 'claude'>('auto')
@@ -308,7 +308,8 @@ const [customSystemPrompt, setCustomSystemPrompt] = useState('')
     if (!input.trim() || busy) return
     const lines = input.trim().split('\n').map(l => l.trim()).filter(Boolean)
     const scriptLines = lines.map(l => {
-      const m = l.match(/^(ALEX|SAM):\s*(.+)$/i)
+      const pat = new RegExp(`^(${hostA}|${hostB}):\\s*(.+)$`, 'i')
+      const m = l.match(pat)
       if (!m) return null
       return { speaker: m[1].toUpperCase() as 'ALEX' | 'SAM', text: m[2].trim() }
     }).filter((l): l is ScriptLine => l !== null)

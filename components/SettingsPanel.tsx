@@ -155,6 +155,8 @@ export function SettingsPanel({
             { label: 'OPENROUTER', val: p.openrouterKey },
             { label: 'FEATHERLESS', val: p.featherlessKey },
             { label: 'ANTHROPIC', val: p.anthropicKey },
+            { label: 'ELEVENLABS', val: p.elevenlabsKey },
+            { label: 'OPENAI', val: p.openaiKey },
             { label: 'NEEDLE', val: p.needleKey },
           ].filter(k => k.val)
           if (keys.length === 0) return <p style={{ margin: 0, fontSize: 12, color: 'var(--muted2)' }}>No keys configured in this profile.</p>

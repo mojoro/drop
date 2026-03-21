@@ -3,7 +3,7 @@
     "hostA": "ALEX",
     "hostB": "SAM",
     "language": "English",
-    "scriptLength": "short",
+    "scriptLength": "1m",
     "customMinutes": 5,
     "llmBackend": "auto",
     "llmOrder": ["ollama", "openrouter", "featherless", "claude"],

@@ -32,7 +32,7 @@ export async function POST(req: Request) {
     return Response.json({ error: "Missing input" }, { status: 400 });
   }
 
-  const length: ScriptLength = ["1m", "5m", "10m", "30m", "custom"].includes(body?.length) ? body.length : "1m";
+  const length: ScriptLength = ["1m", "3m", "7m", "custom", "unlimited"].includes(body?.length) ? body.length : "1m";
   const customMinutes: number | undefined = typeof body?.customMinutes === "number" ? body.customMinutes : undefined;
   const language: ScriptLanguage | undefined = typeof body?.language === "string" && body.language ? body.language : undefined;
   const hostNames: HostNames = {
