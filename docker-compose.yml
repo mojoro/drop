@@ -18,6 +18,9 @@ services:
     build: ./tts-server
     ports:
       - "8000:8000"
+    env_file:
+      - path: .env.local
+        required: false
     volumes:
       - ./tts-server/voices:/app/voices
     healthcheck:

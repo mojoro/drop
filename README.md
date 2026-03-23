@@ -57,6 +57,34 @@ To stop: `docker compose down`
 
 ---
 
+### Voice cloning (local TTS)
+
+The 8 built-in pocket-tts voices work out of the box with no extra setup. **Voice cloning** (creating a custom voice from a WAV recording) uses a separate gated model that requires a one-time HuggingFace authorization:
+
+1. Go to [huggingface.co/kyutai/pocket-tts](https://huggingface.co/kyutai/pocket-tts) and accept the model terms
+2. Log in locally:
+   ```bash
+   # If uv is installed
+   uvx hf auth login
+
+   # Otherwise
+   pip install huggingface_hub
+   huggingface-cli login
+   ```
+3. Paste your HuggingFace access token when prompted (create one at [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens))
+
+**Docker users:** Add your HuggingFace token to `.env.local`:
+
+```
+HF_TOKEN=hf_...
+```
+
+The Compose file forwards it to the TTS container automatically.
+
+Without this step, the built-in voices still work — you'll only see an error if you try to clone a voice.
+
+---
+
 ### Manual setup
 
 Requires Node.js 20+, Python 3.12+, [uv](https://docs.astral.sh/uv/), and ffmpeg.
@@ -230,7 +258,7 @@ All fields are optional and merge with the built-in fallbacks. See `lib/config.t
 - **OpenAI** — cloud, multilanguage
 
 **Voices**
-- Clone a custom voice from a WAV file or microphone recording (local TTS)
+- Clone a custom voice from a WAV file or microphone recording (local TTS — requires extra setup, see [Voice cloning](#voice-cloning-local-tts))
 - Add a voice by ID for ElevenLabs and OpenAI
 - Choose different voices for each host independently
 
